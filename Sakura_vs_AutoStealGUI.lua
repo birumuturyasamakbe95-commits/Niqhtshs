@@ -1407,10 +1407,11 @@ local CoreGui = game:GetService("CoreGui")
 local InfiniteJump = {
     enabled = false,
     jumpPower = 50,
-    mode = "hold", -- "manual" | "hold" (VX7 default UI often hold-friendly; hold matches old Supreme feel)
+    mode = "hold", -- "manual" | "hold"
     canJump = true,
     lastJumpTime = 0,
     lastInfJump = 0,
+    lastIntentional = 0, -- son gercek Space/Jump basisi (donunce JumpRequest spam engeli)
     spaceHeld = false,
     gamepadHeld = false,
     touchHeld = false,
@@ -1427,6 +1428,31 @@ local function _ijTextFocused()
         return UIS:GetFocusedTextBox()
     end)
     return ok and box ~= nil
+end
+
+local function _ijIsIntentionallyHeld()
+    -- Gercek tus/basili durum; JumpRequest tek basina yetmez
+    if InfiniteJump.spaceHeld and UIS:IsKeyDown(Enum.KeyCode.Space) then
+        return true
+    end
+    if InfiniteJump.spaceHeld and not UIS:IsKeyDown(Enum.KeyCode.Space) then
+        -- Space birakildi ama flag takili kalmis olabilir
+        InfiniteJump.spaceHeld = false
+    end
+    if InfiniteJump.gamepadHeld then
+        local a = false
+        local r2 = false
+        pcall(function()
+            a = UIS:IsKeyDown(Enum.KeyCode.ButtonA)
+            r2 = UIS:IsKeyDown(Enum.KeyCode.ButtonR2)
+        end)
+        if a or r2 then return true end
+        InfiniteJump.gamepadHeld = false
+    end
+    if InfiniteJump.touchHeld then
+        return true
+    end
+    return false
 end
 
 local function _ijClearVelocity()
@@ -1464,20 +1490,27 @@ local function _ijApplyJumpVelocity()
         hrp.Velocity = _V3new(hrp.Velocity.X, power, hrp.Velocity.Z)
     end)
 
-    -- VX7 uses ~0.08s re-arm
-    task.delay(0.08, function()
+    task.delay(0.12, function()
         InfiniteJump.canJump = true
     end)
 end
 
 local function _ijOnJumpRequest()
     if not InfiniteJump.enabled then return end
+    if _ijTextFocused() then return end
+    if batDesyncTpEnabled or dropActive then return end
+
+    -- Hold modunda JumpRequest KULLANMA: kamera/donus spam'i zıplatıyordu.
+    -- Sadece Space/Jump gercekten basiliysa hold tick zıplatir.
     if InfiniteJump.mode == "hold" then
-        -- hold mode still allows first press via JumpRequest
-        _ijApplyJumpVelocity()
         return
     end
-    -- manual
+
+    -- Manual: sadece yakin zamanda gercek tus basildiysa zıpla
+    local now = _tick()
+    if now - (InfiniteJump.lastIntentional or 0) > 0.35 then
+        return
+    end
     _ijApplyJumpVelocity()
 end
 
@@ -1488,15 +1521,11 @@ local function _ijHoldTick()
     if batDesyncTpEnabled then return end
     if dropActive then return end
 
-    -- Sadece basılıyken zıpla; bırakınca kendi kendine devam etmesin
-    local held = InfiniteJump.spaceHeld
-        or UIS:IsKeyDown(Enum.KeyCode.Space)
-        or InfiniteJump.gamepadHeld
-        or InfiniteJump.touchHeld
-
-    if held then
-        _ijApplyJumpVelocity()
+    -- Sadece gercekten basiliyken; donunce/kendiliginden zıplamasin
+    if not _ijIsIntentionallyHeld() then
+        return
     end
+    _ijApplyJumpVelocity()
 end
 
 local function _ijBindMobileJumpButton(btn)
@@ -1510,11 +1539,26 @@ local function _ijBindMobileJumpButton(btn)
         if input.UserInputType == Enum.UserInputType.Touch
             or input.UserInputType == Enum.UserInputType.MouseButton1 then
             InfiniteJump.touchHeld = true
+            InfiniteJump.lastIntentional = _tick()
         end
     end)
     InfiniteJump.mobileButtonConns[2] = btn.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.Touch
             or input.UserInputType == Enum.UserInputType.MouseButton1 then
+            InfiniteJump.touchHeld = false
+        end
+    end)
+    -- Parmak kayinca JumpButton disina cikarsa serbest birak
+    InfiniteJump.mobileButtonConns[5] = btn.InputChanged:Connect(function(input)
+        if not InfiniteJump.touchHeld then return end
+        if input.UserInputType ~= Enum.UserInputType.Touch
+            and input.UserInputType ~= Enum.UserInputType.MouseMovement then
+            return
+        end
+        local pos = input.Position
+        local ap = btn.AbsolutePosition
+        local as = btn.AbsoluteSize
+        if pos.X < ap.X or pos.X > ap.X + as.X or pos.Y < ap.Y or pos.Y > ap.Y + as.Y then
             InfiniteJump.touchHeld = false
         end
     end)
@@ -1561,9 +1605,17 @@ local function _ijConnectEvents()
         if gpe or _ijTextFocused() then return end
         if input.KeyCode == Enum.KeyCode.Space then
             InfiniteJump.spaceHeld = true
+            InfiniteJump.lastIntentional = _tick()
+            if InfiniteJump.mode == "manual" then
+                _ijApplyJumpVelocity()
+            end
         elseif input.KeyCode == Enum.KeyCode.ButtonA
             or input.KeyCode == Enum.KeyCode.ButtonR2 then
             InfiniteJump.gamepadHeld = true
+            InfiniteJump.lastIntentional = _tick()
+            if InfiniteJump.mode == "manual" then
+                _ijApplyJumpVelocity()
+            end
         end
     end)
     InfiniteJump.inputEndedConn = UIS.InputEnded:Connect(function(input)
@@ -1595,8 +1647,9 @@ function InfiniteJump.start()
     InfiniteJump.canJump = true
     InfiniteJump.lastJumpTime = 0
     InfiniteJump.lastInfJump = 0
+    InfiniteJump.lastIntentional = 0
     _ijConnectEvents()
-    print("[InfiniteJump] Enabled (VX7 style)")
+    print("[InfiniteJump] Enabled (fixed hold)")
 end
 
 function InfiniteJump.stop()
@@ -3171,19 +3224,60 @@ function setupSpeedIndicator(char)
     if discordBB then discordBB:Destroy() end
     discordBB = Instance.new("BillboardGui", head)
     discordBB.Name = "DiscordText"
-    discordBB.Size = UDim2.new(0, 200, 0, 28)
-    discordBB.StudsOffset = _V3new(0, 5.2, 0)
+    discordBB.Size = UDim2.new(0, 260, 0, 42)
+    discordBB.StudsOffset = _V3new(0, 5.4, 0)
     discordBB.AlwaysOnTop = true
-    local discordLabel = Instance.new("TextLabel", discordBB)
-    discordLabel.Size = UDim2.new(1, 0, 1, 0)
+    discordBB.MaxDistance = 120
+
+    local discFrame = Instance.new("Frame", discordBB)
+    discFrame.Size = UDim2.new(1, 0, 1, 0)
+    discFrame.BackgroundColor3 = Color3.fromRGB(8, 10, 14)
+    discFrame.BackgroundTransparency = 0.2
+    discFrame.BorderSizePixel = 0
+    Instance.new("UICorner", discFrame).CornerRadius = UDim.new(0, 12)
+    local discStroke = Instance.new("UIStroke", discFrame)
+    discStroke.Color = Color3.fromRGB(90, 210, 230)
+    discStroke.Thickness = 1.6
+    discStroke.Transparency = 0.15
+
+    local discBg = Instance.new("ImageLabel", discFrame)
+    discBg.Name = "DiscordAssetBg"
+    discBg.Size = UDim2.new(1, 0, 1, 0)
+    discBg.BackgroundTransparency = 1
+    discBg.ScaleType = Enum.ScaleType.Crop
+    discBg.ImageTransparency = 0.1
+    discBg.Image = "rbxassetid://124268985896208"
+    discBg.ZIndex = 1
+    Instance.new("UICorner", discBg).CornerRadius = UDim.new(0, 12)
+    task.delay(0.5, function()
+        if discBg and discBg.Parent then
+            pcall(function()
+                discBg.Image = "rbxthumb://type=Asset&id=124268985896208&w=768&h=432"
+            end)
+        end
+    end)
+
+    local discWash = Instance.new("Frame", discFrame)
+    discWash.Size = UDim2.new(1, 0, 1, 0)
+    discWash.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    discWash.BackgroundTransparency = 0.45
+    discWash.BorderSizePixel = 0
+    discWash.ZIndex = 2
+    Instance.new("UICorner", discWash).CornerRadius = UDim.new(0, 12)
+
+    local discordLabel = Instance.new("TextLabel", discFrame)
+    discordLabel.Name = "DiscordLabel"
+    discordLabel.Size = UDim2.new(1, -12, 1, -6)
+    discordLabel.Position = UDim2.new(0, 6, 0, 3)
     discordLabel.BackgroundTransparency = 1
     discordLabel.Text = "discord.gg/SakuraDuels"
-    discordLabel.TextColor3 = getThemeColor()
-    discordLabel.Font = Enum.Font.GothamBold
+    discordLabel.TextColor3 = Color3.fromRGB(200, 235, 245)
+    discordLabel.Font = Enum.Font.GothamBlack
     discordLabel.TextScaled = true
-    discordLabel.TextStrokeTransparency = 0
+    discordLabel.TextStrokeTransparency = 0.15
     discordLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-    applyShimmerToText(discordLabel, 0.9)
+    discordLabel.ZIndex = 5
+    applyShimmerToText(discordLabel, 0.85)
 end
 
 local unwalkSavedAnimate = nil
@@ -4307,19 +4401,17 @@ end
 -- keep legacy aliases used elsewhere
 _specBypass = _adaptBypass
 
-function cycleBatAimbotMode(dir)
-    dir = dir or 1
-    local modes = {"Normal", "Bypass", "V3"}
-    local idx = 1
-    for i, m in ipairs(modes) do
-        if m == batAimbotMode then idx = i; break end
+local BAT_AIMBOT_MODES = {"Normal", "Bypass", "V3"}
+
+function setBatAimbotMode(mode)
+    mode = tostring(mode or "Normal")
+    local ok = false
+    for _, m in ipairs(BAT_AIMBOT_MODES) do
+        if m == mode then ok = true; break end
     end
-    local newIdx = idx + dir
-    if newIdx < 1 then newIdx = #modes end
-    if newIdx > #modes then newIdx = 1 end
-    batAimbotMode = modes[newIdx]
-    if batAimbotModeLabel then batAimbotModeLabel.Text = batAimbotMode end
-    -- restart active aimbot with new mode
+    if not ok then mode = "Normal" end
+    batAimbotMode = mode
+    if batAimbotModeLabel then batAimbotModeLabel.Text = tostring(batAimbotMode) .. "  ▼" end
     if autoBatEnabled then
         if batAimbotMode == "Bypass" then
             startSpectrumBypassAimbot()
@@ -4336,6 +4428,19 @@ function cycleBatAimbotMode(dir)
     end
     pcall(saveAllSettings)
     return batAimbotMode
+end
+
+function cycleBatAimbotMode(dir)
+    dir = dir or 1
+    local modes = BAT_AIMBOT_MODES
+    local idx = 1
+    for i, m in ipairs(modes) do
+        if m == batAimbotMode then idx = i; break end
+    end
+    local newIdx = idx + dir
+    if newIdx < 1 then newIdx = #modes end
+    if newIdx > #modes then newIdx = 1 end
+    return setBatAimbotMode(modes[newIdx])
 end
 
 function disableAutoBat()
@@ -5066,6 +5171,23 @@ function toggleBatDesyncTp()
 end
 
 local BAT_TP_VERSIONS = {"V1", "V2", "V3"}
+function setBatTPVersion(ver)
+    ver = tostring(ver or "V1")
+    local ok = false
+    for _, v in ipairs(BAT_TP_VERSIONS) do
+        if v == ver then ok = true; break end
+    end
+    if not ok then ver = "V1" end
+    batTPVersion = ver
+    if batTPVersionLabel then batTPVersionLabel.Text = tostring(batTPVersion) .. "  ▼" end
+    if batDesyncTpEnabled then
+        stopBatDesyncTp()
+        startBatDesyncTp()
+        if batDesyncTpSetVisual then batDesyncTpSetVisual(true) end
+    end
+    pcall(saveAllSettings)
+    return batTPVersion
+end
 function cycleBatTPVersion(dir)
     dir = dir or 1
     local idx = 1
@@ -5075,16 +5197,7 @@ function cycleBatTPVersion(dir)
     local newIdx = idx + dir
     if newIdx < 1 then newIdx = #BAT_TP_VERSIONS end
     if newIdx > #BAT_TP_VERSIONS then newIdx = 1 end
-    batTPVersion = BAT_TP_VERSIONS[newIdx]
-    if batTPVersionLabel then batTPVersionLabel.Text = batTPVersion end
-    -- restart if currently active so new version applies
-    if batDesyncTpEnabled then
-        stopBatDesyncTp()
-        startBatDesyncTp()
-        if batDesyncTpSetVisual then batDesyncTpSetVisual(true) end
-    end
-    pcall(saveAllSettings)
-    return batTPVersion
+    return setBatTPVersion(BAT_TP_VERSIONS[newIdx])
 end
 
 
@@ -6335,7 +6448,7 @@ function loadAllSettings()
         _G.__tpBatV2Distance = tonumber(data.tpBatV2Distance) or 8
     end
     if batTPVersionLabel then
-        batTPVersionLabel.Text = tostring(batTPVersion or "V1")
+        batTPVersionLabel.Text = tostring(batTPVersion or "V1") .. "  ▼"
     end
     local tpBatStateLoaded = data.tpBatEnabled or false
     if tpBatStateLoaded then
@@ -6422,7 +6535,7 @@ function loadAllSettings()
     end
     batAimbotMode = batAimbotMode or "Normal"
     if batAimbotModeLabel then
-        batAimbotModeLabel.Text = tostring(batAimbotMode or "Normal")
+        batAimbotModeLabel.Text = tostring(batAimbotMode or "Normal") .. "  ▼"
     end
     if data.bypassAimbotSpeed then BYPASS_AIMBOT_SPEED = data.bypassAimbotSpeed end
     backgroundIndex = data.backgroundIndex or 1
@@ -8583,67 +8696,97 @@ function buildGui()
     do local row = mkRow(combatPage, 38); mkLabel(row, "Bat Aimbot Speed"); batSpeedBox = mkBox(row, BAT_AIMBOT_SPEED, 50, 56, function(v) if v > 0 and v <= 200 then BAT_AIMBOT_SPEED = v; pcall(saveAllSettings) end end) end
     do local row = mkRow(combatPage, 38); mkLabel(row, "Bypass Aimbot Speed"); local bypassBox = mkBox(row, BYPASS_AIMBOT_SPEED, 50, 56, function(v) if v > 0 and v <= 200 then BYPASS_AIMBOT_SPEED = v; pcall(saveAllSettings) end end) end
 
-    -- Bat Aimbot Mode: Normal | Bypass | V3 (Yout)
+    -- Bat Aimbot Mode: acilir secenek menusu (Normal / Bypass / V3)
     do
         local row = mkRow(combatPage, 38)
         mkLabel(row, "Bat Aimbot Mode")
-        local container = Instance.new("Frame", row)
-        container.Size = UDim2.new(0, 160, 1, 0)
-        container.Position = UDim2.new(1, -168, 0, 0)
-        container.BackgroundTransparency = 1
-        container.ZIndex = 8
-        local leftBtn = Instance.new("TextButton", container)
-        leftBtn.Size = UDim2.new(0, 28, 0, 26)
-        leftBtn.Position = UDim2.new(0, 0, 0.5, -13)
-        leftBtn.BackgroundColor3 = INP
-        leftBtn.BackgroundTransparency = 0.2
-        leftBtn.BorderSizePixel = 0
-        leftBtn.Text = "<"
-        leftBtn.TextColor3 = WHITE
-        leftBtn.Font = Enum.Font.GothamBold
-        leftBtn.TextSize = 13
-        leftBtn.AutoButtonColor = false
-        leftBtn.ZIndex = 9
-        Instance.new("UICorner", leftBtn).CornerRadius = UDim.new(0, 6)
-        local leftStroke = Instance.new("UIStroke", leftBtn)
-        leftStroke.Color = ROW_BORDER
-        leftStroke.Thickness = 1
-        leftStroke.Transparency = 0.4
-        batAimbotModeLabel = Instance.new("TextLabel", container)
-        batAimbotModeLabel.Size = UDim2.new(0, 96, 0, 26)
-        batAimbotModeLabel.Position = UDim2.new(0, 32, 0.5, -13)
-        batAimbotModeLabel.BackgroundColor3 = INP
-        batAimbotModeLabel.BackgroundTransparency = 0.15
-        batAimbotModeLabel.BorderSizePixel = 0
-        batAimbotModeLabel.Text = tostring(batAimbotMode or "Normal")
-        batAimbotModeLabel.TextColor3 = WHITE
-        batAimbotModeLabel.Font = Enum.Font.GothamBold
-        batAimbotModeLabel.TextSize = 13
-        batAimbotModeLabel.ZIndex = 9
-        Instance.new("UICorner", batAimbotModeLabel).CornerRadius = UDim.new(0, 6)
-        local midStroke = Instance.new("UIStroke", batAimbotModeLabel)
-        midStroke.Color = ROW_BORDER
-        midStroke.Thickness = 1
-        midStroke.Transparency = 0.4
-        local rightBtn = Instance.new("TextButton", container)
-        rightBtn.Size = UDim2.new(0, 28, 0, 26)
-        rightBtn.Position = UDim2.new(0, 132, 0.5, -13)
-        rightBtn.BackgroundColor3 = INP
-        rightBtn.BackgroundTransparency = 0.2
-        rightBtn.BorderSizePixel = 0
-        rightBtn.Text = ">"
-        rightBtn.TextColor3 = WHITE
-        rightBtn.Font = Enum.Font.GothamBold
-        rightBtn.TextSize = 13
-        rightBtn.AutoButtonColor = false
-        rightBtn.ZIndex = 9
-        Instance.new("UICorner", rightBtn).CornerRadius = UDim.new(0, 6)
-        local rightStroke = Instance.new("UIStroke", rightBtn)
-        rightStroke.Color = ROW_BORDER
-        rightStroke.Thickness = 1
-        rightStroke.Transparency = 0.4
-        leftBtn.MouseButton1Click:Connect(function() cycleBatAimbotMode(-1) end)
-        rightBtn.MouseButton1Click:Connect(function() cycleBatAimbotMode(1) end)
+        local openBtn = Instance.new("TextButton", row)
+        openBtn.Size = UDim2.new(0, 120, 0, 26)
+        openBtn.Position = UDim2.new(1, -128, 0.5, -13)
+        openBtn.BackgroundColor3 = INP
+        openBtn.BackgroundTransparency = 0.12
+        openBtn.BorderSizePixel = 0
+        openBtn.Text = tostring(batAimbotMode or "Normal") .. "  ▼"
+        openBtn.TextColor3 = WHITE
+        openBtn.Font = Enum.Font.GothamBold
+        openBtn.TextSize = 12
+        openBtn.AutoButtonColor = false
+        openBtn.ZIndex = 12
+        Instance.new("UICorner", openBtn).CornerRadius = UDim.new(0, 8)
+        local openStroke = Instance.new("UIStroke", openBtn)
+        openStroke.Color = Color3.fromRGB(90, 210, 230)
+        openStroke.Thickness = 1.2
+        openStroke.Transparency = 0.35
+        batAimbotModeLabel = openBtn
+
+        local dropFrame = Instance.new("Frame", combatPage)
+        dropFrame.Name = "BatAimbotModeDrop"
+        dropFrame.Size = UDim2.new(1, -16, 0, 0)
+        dropFrame.BackgroundColor3 = Color3.fromRGB(12, 14, 18)
+        dropFrame.BackgroundTransparency = 0.15
+        dropFrame.BorderSizePixel = 0
+        dropFrame.Visible = false
+        dropFrame.ClipsDescendants = true
+        dropFrame.ZIndex = 30
+        dropFrame.LayoutOrder = getNextOrder(combatPage)
+        Instance.new("UICorner", dropFrame).CornerRadius = UDim.new(0, 10)
+        local dropStroke = Instance.new("UIStroke", dropFrame)
+        dropStroke.Color = Color3.fromRGB(90, 210, 230)
+        dropStroke.Thickness = 1.2
+        dropStroke.Transparency = 0.3
+        local dropList = Instance.new("UIListLayout", dropFrame)
+        dropList.FillDirection = Enum.FillDirection.Vertical
+        dropList.Padding = UDim.new(0, 4)
+        dropList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+        local dropPad = Instance.new("UIPadding", dropFrame)
+        dropPad.PaddingTop = UDim.new(0, 6)
+        dropPad.PaddingBottom = UDim.new(0, 6)
+
+        local expanded = false
+        local optButtons = {}
+        local function refreshOpts()
+            for _, b in ipairs(optButtons) do
+                local active = (b.Name == tostring(batAimbotMode))
+                b.BackgroundColor3 = active and Color3.fromRGB(90, 210, 230) or Color3.fromRGB(22, 26, 32)
+                b.TextColor3 = active and Color3.fromRGB(8, 10, 14) or WHITE
+            end
+            openBtn.Text = tostring(batAimbotMode or "Normal") .. (expanded and "  ▲" or "  ▼")
+        end
+        for _, modeName in ipairs(BAT_AIMBOT_MODES) do
+            local b = Instance.new("TextButton", dropFrame)
+            b.Name = modeName
+            b.Size = UDim2.new(1, -16, 0, 28)
+            b.BackgroundColor3 = Color3.fromRGB(22, 26, 32)
+            b.BorderSizePixel = 0
+            b.Text = modeName
+            b.TextColor3 = WHITE
+            b.Font = Enum.Font.GothamBold
+            b.TextSize = 13
+            b.AutoButtonColor = false
+            b.ZIndex = 31
+            Instance.new("UICorner", b).CornerRadius = UDim.new(0, 7)
+            b.MouseButton1Click:Connect(function()
+                setBatAimbotMode(modeName)
+                expanded = false
+                dropFrame.Visible = false
+                dropFrame.Size = UDim2.new(1, -16, 0, 0)
+                refreshOpts()
+            end)
+            table.insert(optButtons, b)
+        end
+        openBtn.MouseButton1Click:Connect(function()
+            expanded = not expanded
+            if expanded then
+                local h = 6 + (#BAT_AIMBOT_MODES * 32) + 6
+                dropFrame.Size = UDim2.new(1, -16, 0, h)
+                dropFrame.Visible = true
+            else
+                dropFrame.Visible = false
+                dropFrame.Size = UDim2.new(1, -16, 0, 0)
+            end
+            refreshOpts()
+        end)
+        refreshOpts()
     end
 
     batDesyncTpSetVisual = mkToggle(combatPage, "TP BAT", function(on)
@@ -8655,67 +8798,97 @@ function buildGui()
     end)
     if batDesyncTpSetVisual then batDesyncTpSetVisual(batDesyncTpEnabled) end
 
-    -- TP BAT version selector (V1 / V2 / V3)
+    -- TP BAT version: acilir secenek menusu (V1 / V2 / V3)
     do
         local row = mkRow(combatPage, 38)
         mkLabel(row, "TP BAT Version")
-        local container = Instance.new("Frame", row)
-        container.Size = UDim2.new(0, 160, 1, 0)
-        container.Position = UDim2.new(1, -168, 0, 0)
-        container.BackgroundTransparency = 1
-        container.ZIndex = 8
-        local leftBtn = Instance.new("TextButton", container)
-        leftBtn.Size = UDim2.new(0, 28, 0, 26)
-        leftBtn.Position = UDim2.new(0, 0, 0.5, -13)
-        leftBtn.BackgroundColor3 = INP
-        leftBtn.BackgroundTransparency = 0.2
-        leftBtn.BorderSizePixel = 0
-        leftBtn.Text = "<"
-        leftBtn.TextColor3 = WHITE
-        leftBtn.Font = Enum.Font.GothamBold
-        leftBtn.TextSize = 13
-        leftBtn.AutoButtonColor = false
-        leftBtn.ZIndex = 9
-        Instance.new("UICorner", leftBtn).CornerRadius = UDim.new(0, 6)
-        local leftStroke = Instance.new("UIStroke", leftBtn)
-        leftStroke.Color = ROW_BORDER
-        leftStroke.Thickness = 1
-        leftStroke.Transparency = 0.4
-        batTPVersionLabel = Instance.new("TextLabel", container)
-        batTPVersionLabel.Size = UDim2.new(0, 96, 0, 26)
-        batTPVersionLabel.Position = UDim2.new(0, 32, 0.5, -13)
-        batTPVersionLabel.BackgroundColor3 = INP
-        batTPVersionLabel.BackgroundTransparency = 0.15
-        batTPVersionLabel.BorderSizePixel = 0
-        batTPVersionLabel.Text = tostring(batTPVersion or "V1")
-        batTPVersionLabel.TextColor3 = WHITE
-        batTPVersionLabel.Font = Enum.Font.GothamBold
-        batTPVersionLabel.TextSize = 13
-        batTPVersionLabel.ZIndex = 9
-        Instance.new("UICorner", batTPVersionLabel).CornerRadius = UDim.new(0, 6)
-        local midStroke = Instance.new("UIStroke", batTPVersionLabel)
-        midStroke.Color = ROW_BORDER
-        midStroke.Thickness = 1
-        midStroke.Transparency = 0.4
-        local rightBtn = Instance.new("TextButton", container)
-        rightBtn.Size = UDim2.new(0, 28, 0, 26)
-        rightBtn.Position = UDim2.new(0, 132, 0.5, -13)
-        rightBtn.BackgroundColor3 = INP
-        rightBtn.BackgroundTransparency = 0.2
-        rightBtn.BorderSizePixel = 0
-        rightBtn.Text = ">"
-        rightBtn.TextColor3 = WHITE
-        rightBtn.Font = Enum.Font.GothamBold
-        rightBtn.TextSize = 13
-        rightBtn.AutoButtonColor = false
-        rightBtn.ZIndex = 9
-        Instance.new("UICorner", rightBtn).CornerRadius = UDim.new(0, 6)
-        local rightStroke = Instance.new("UIStroke", rightBtn)
-        rightStroke.Color = ROW_BORDER
-        rightStroke.Thickness = 1
-        rightStroke.Transparency = 0.4
-        leftBtn.MouseButton1Click:Connect(function() cycleBatTPVersion(-1) end)
-        rightBtn.MouseButton1Click:Connect(function() cycleBatTPVersion(1) end)
+        local openBtn = Instance.new("TextButton", row)
+        openBtn.Size = UDim2.new(0, 120, 0, 26)
+        openBtn.Position = UDim2.new(1, -128, 0.5, -13)
+        openBtn.BackgroundColor3 = INP
+        openBtn.BackgroundTransparency = 0.12
+        openBtn.BorderSizePixel = 0
+        openBtn.Text = tostring(batTPVersion or "V1") .. "  ▼"
+        openBtn.TextColor3 = WHITE
+        openBtn.Font = Enum.Font.GothamBold
+        openBtn.TextSize = 12
+        openBtn.AutoButtonColor = false
+        openBtn.ZIndex = 12
+        Instance.new("UICorner", openBtn).CornerRadius = UDim.new(0, 8)
+        local openStroke = Instance.new("UIStroke", openBtn)
+        openStroke.Color = Color3.fromRGB(90, 210, 230)
+        openStroke.Thickness = 1.2
+        openStroke.Transparency = 0.35
+        batTPVersionLabel = openBtn
+
+        local dropFrame = Instance.new("Frame", combatPage)
+        dropFrame.Name = "BatTPVersionDrop"
+        dropFrame.Size = UDim2.new(1, -16, 0, 0)
+        dropFrame.BackgroundColor3 = Color3.fromRGB(12, 14, 18)
+        dropFrame.BackgroundTransparency = 0.15
+        dropFrame.BorderSizePixel = 0
+        dropFrame.Visible = false
+        dropFrame.ClipsDescendants = true
+        dropFrame.ZIndex = 30
+        dropFrame.LayoutOrder = getNextOrder(combatPage)
+        Instance.new("UICorner", dropFrame).CornerRadius = UDim.new(0, 10)
+        local dropStroke = Instance.new("UIStroke", dropFrame)
+        dropStroke.Color = Color3.fromRGB(90, 210, 230)
+        dropStroke.Thickness = 1.2
+        dropStroke.Transparency = 0.3
+        local dropList = Instance.new("UIListLayout", dropFrame)
+        dropList.FillDirection = Enum.FillDirection.Vertical
+        dropList.Padding = UDim.new(0, 4)
+        dropList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+        local dropPad = Instance.new("UIPadding", dropFrame)
+        dropPad.PaddingTop = UDim.new(0, 6)
+        dropPad.PaddingBottom = UDim.new(0, 6)
+
+        local expanded = false
+        local optButtons = {}
+        local function refreshOpts()
+            for _, b in ipairs(optButtons) do
+                local active = (b.Name == tostring(batTPVersion))
+                b.BackgroundColor3 = active and Color3.fromRGB(90, 210, 230) or Color3.fromRGB(22, 26, 32)
+                b.TextColor3 = active and Color3.fromRGB(8, 10, 14) or WHITE
+            end
+            openBtn.Text = tostring(batTPVersion or "V1") .. (expanded and "  ▲" or "  ▼")
+        end
+        for _, verName in ipairs(BAT_TP_VERSIONS) do
+            local b = Instance.new("TextButton", dropFrame)
+            b.Name = verName
+            b.Size = UDim2.new(1, -16, 0, 28)
+            b.BackgroundColor3 = Color3.fromRGB(22, 26, 32)
+            b.BorderSizePixel = 0
+            b.Text = verName
+            b.TextColor3 = WHITE
+            b.Font = Enum.Font.GothamBold
+            b.TextSize = 13
+            b.AutoButtonColor = false
+            b.ZIndex = 31
+            Instance.new("UICorner", b).CornerRadius = UDim.new(0, 7)
+            b.MouseButton1Click:Connect(function()
+                setBatTPVersion(verName)
+                expanded = false
+                dropFrame.Visible = false
+                dropFrame.Size = UDim2.new(1, -16, 0, 0)
+                refreshOpts()
+            end)
+            table.insert(optButtons, b)
+        end
+        openBtn.MouseButton1Click:Connect(function()
+            expanded = not expanded
+            if expanded then
+                local h = 6 + (#BAT_TP_VERSIONS * 32) + 6
+                dropFrame.Size = UDim2.new(1, -16, 0, h)
+                dropFrame.Visible = true
+            else
+                dropFrame.Visible = false
+                dropFrame.Size = UDim2.new(1, -16, 0, 0)
+            end
+            refreshOpts()
+        end)
+        refreshOpts()
     end
     -- Bat V2 removed from GUI
 
@@ -10634,10 +10807,10 @@ function updateUIFromLoaded()
     end
 
     if batAimbotModeLabel then
-        batAimbotModeLabel.Text = tostring(batAimbotMode or "Normal")
+        batAimbotModeLabel.Text = tostring(batAimbotMode or "Normal") .. "  ▼"
     end
     if batTPVersionLabel then
-        batTPVersionLabel.Text = tostring(batTPVersion or "V1")
+        batTPVersionLabel.Text = tostring(batTPVersion or "V1") .. "  ▼"
     end
     if batDesyncTpEnabled then
         if batDesyncTpSetVisual then batDesyncTpSetVisual(true) end
