@@ -239,8 +239,6 @@ local CarrySystem = {
     softStealRadius = 10,
     softStealSpeed = 30,
     softStealLatched = false,
-    -- Pet eline alinca Carry Speed, birakinca Normal
-    autoCarrySpeedEnabled = false,
 
     _isCarrying = false,
     _lastCarryCheck = 0,
@@ -316,10 +314,6 @@ function CarrySystem:getActiveSpeed()
     end
     if self.laggerMode == 1 then return self.laggerSpeed end
     if self.laggerMode == 2 then return self.laggerCarrySpeed end
-    -- Auto Carry Speed: pet eldeyken carry, birakinca normal
-    if self.autoCarrySpeedEnabled and self:isCarrying() then
-        return self.carrySpeed
-    end
     if self.speedToggled then return self.carrySpeed end
     return self.normalSpeed
 end
@@ -337,9 +331,6 @@ function CarrySystem:getStatus()
     end
     if self.laggerMode == 1 then return "LAGGER", self.laggerSpeed end
     if self.laggerMode == 2 then return "LAGGER CARRY", self.laggerCarrySpeed end
-    if self.autoCarrySpeedEnabled and self:isCarrying() then
-        return "AUTO CARRY SPD", self.carrySpeed
-    end
     if self.speedToggled then return "CARRY", self.carrySpeed end
     return "NORMAL", self.normalSpeed
 end
@@ -596,12 +587,6 @@ function CarrySystem:setSoftStealEnabled(enabled)
     else self:stopSoftStealScanner(); self.softStealLatched = false end
 end
 function CarrySystem:toggleSoftSteal() self:setSoftStealEnabled(not self.softStealEnabled) end
-function CarrySystem:setAutoCarrySpeedEnabled(enabled)
-    self.autoCarrySpeedEnabled = enabled and true or false
-end
-function CarrySystem:toggleAutoCarrySpeed()
-    self:setAutoCarrySpeedEnabled(not self.autoCarrySpeedEnabled)
-end
 function CarrySystem:isRunning() return self._heartbeatConn ~= nil end
 function CarrySystem:getCurrentSpeed() return self:getActiveSpeed() end
 
@@ -2295,7 +2280,6 @@ tabButtons = nil
 colorSelectorLabel = nil
 
 carrySystemToggleSetter = nil
-autoCarrySpeedToggleSetter = nil
 carrySysNormalBox = nil
 carrySysCarryBox = nil
 carrySysLaggerBox = nil
@@ -3240,18 +3224,60 @@ function setupSpeedIndicator(char)
     if discordBB then discordBB:Destroy() end
     discordBB = Instance.new("BillboardGui", head)
     discordBB.Name = "DiscordText"
-    discordBB.Size = UDim2.new(0, 200, 0, 28)
-    discordBB.StudsOffset = _V3new(0, 5.2, 0)
+    discordBB.Size = UDim2.new(0, 260, 0, 42)
+    discordBB.StudsOffset = _V3new(0, 5.4, 0)
     discordBB.AlwaysOnTop = true
-    local discordLabel = Instance.new("TextLabel", discordBB)
-    discordLabel.Size = UDim2.new(1, 0, 1, 0)
+    discordBB.MaxDistance = 120
+
+    local discFrame = Instance.new("Frame", discordBB)
+    discFrame.Size = UDim2.new(1, 0, 1, 0)
+    discFrame.BackgroundColor3 = Color3.fromRGB(8, 10, 14)
+    discFrame.BackgroundTransparency = 0.2
+    discFrame.BorderSizePixel = 0
+    Instance.new("UICorner", discFrame).CornerRadius = UDim.new(0, 12)
+    local discStroke = Instance.new("UIStroke", discFrame)
+    discStroke.Color = Color3.fromRGB(90, 210, 230)
+    discStroke.Thickness = 1.6
+    discStroke.Transparency = 0.15
+
+    local discBg = Instance.new("ImageLabel", discFrame)
+    discBg.Name = "DiscordAssetBg"
+    discBg.Size = UDim2.new(1, 0, 1, 0)
+    discBg.BackgroundTransparency = 1
+    discBg.ScaleType = Enum.ScaleType.Crop
+    discBg.ImageTransparency = 0.1
+    discBg.Image = "rbxassetid://124268985896208"
+    discBg.ZIndex = 1
+    Instance.new("UICorner", discBg).CornerRadius = UDim.new(0, 12)
+    task.delay(0.5, function()
+        if discBg and discBg.Parent then
+            pcall(function()
+                discBg.Image = "rbxthumb://type=Asset&id=124268985896208&w=768&h=432"
+            end)
+        end
+    end)
+
+    local discWash = Instance.new("Frame", discFrame)
+    discWash.Size = UDim2.new(1, 0, 1, 0)
+    discWash.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    discWash.BackgroundTransparency = 0.45
+    discWash.BorderSizePixel = 0
+    discWash.ZIndex = 2
+    Instance.new("UICorner", discWash).CornerRadius = UDim.new(0, 12)
+
+    local discordLabel = Instance.new("TextLabel", discFrame)
+    discordLabel.Name = "DiscordLabel"
+    discordLabel.Size = UDim2.new(1, -12, 1, -6)
+    discordLabel.Position = UDim2.new(0, 6, 0, 3)
     discordLabel.BackgroundTransparency = 1
     discordLabel.Text = "discord.gg/SakuraDuels"
-    discordLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    discordLabel.Font = Enum.Font.GothamBold
+    discordLabel.TextColor3 = Color3.fromRGB(200, 235, 245)
+    discordLabel.Font = Enum.Font.GothamBlack
     discordLabel.TextScaled = true
-    discordLabel.TextStrokeTransparency = 0
+    discordLabel.TextStrokeTransparency = 0.15
     discordLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    discordLabel.ZIndex = 5
+    applyShimmerToText(discordLabel, 0.85)
 end
 
 local unwalkSavedAnimate = nil
@@ -6218,7 +6244,6 @@ function buildConfigTable()
         outfitIndex = currentOutfitIndex,
         themeColor = currentColorTheme,
         useCarrySystem = useCarrySystem,
-        autoCarrySpeedEnabled = CarrySystem.autoCarrySpeedEnabled,
         carrySysNormal = CarrySystem.normalSpeed,
         carrySysCarry = CarrySystem.carrySpeed,
         carrySysLagger = CarrySystem.laggerSpeed,
@@ -6530,8 +6555,7 @@ function loadAllSettings()
         end)
     end
 
-    useCarrySystem = data.useCarrySystem
-    if data.autoCarrySpeedEnabled ~= nil then CarrySystem.autoCarrySpeedEnabled = data.autoCarrySpeedEnabled and true or false end or false
+    useCarrySystem = data.useCarrySystem or false
     CarrySystem.normalSpeed = data.carrySysNormal or NS
     CarrySystem.carrySpeed = data.carrySysCarry or CS
     CarrySystem.laggerSpeed = data.carrySysLagger or LAGGER_SPEED
@@ -6577,7 +6601,6 @@ function forceResetUI()
     if carrySysSoftStealSpeedBox then carrySysSoftStealSpeedBox.Text = tostring(CarrySystem.softStealSpeed) end
     if carrySysSoftStealRadiusBox then carrySysSoftStealRadiusBox.Text = tostring(CarrySystem.softStealRadius) end
     if carrySystemToggleSetter then carrySystemToggleSetter(useCarrySystem) end
-    if autoCarrySpeedToggleSetter then autoCarrySpeedToggleSetter(CarrySystem.autoCarrySpeedEnabled == true) end
     local function safeSet(fn, val) if fn then fn(val) end end
     safeSet(autoBatSetVisual, false)
     safeSet(autoLeftSetVisual, false)
@@ -7734,13 +7757,14 @@ function buildGui()
     discordTitle.Position = UDim2.new(0, 10, 0, 24)
     discordTitle.BackgroundTransparency = 1
     discordTitle.Text = "discord.gg/SakuraDuels"
-    discordTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    discordTitle.TextColor3 = Color3.fromRGB(160, 220, 235)
     discordTitle.Font = Enum.Font.GothamBold
     discordTitle.TextSize = 12
     discordTitle.TextXAlignment = Enum.TextXAlignment.Left
     discordTitle.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-    discordTitle.TextStrokeTransparency = 0.25
+    discordTitle.TextStrokeTransparency = 0.35
     discordTitle.ZIndex = 23
+    applyShimmerToText(discordTitle, 0.85)
 
     local closeBtn = Instance.new("TextButton", main)
     closeBtn.Name = "CloseBtn"
@@ -8439,21 +8463,6 @@ function buildGui()
         end
         saveAllSettings()
     end)
-
-    -- Pet eline alinca Carry Speed, birakinca Normal
-    autoCarrySpeedToggleSetter = mkToggle(speedPage, "Auto Carry Speed", function(on)
-        CarrySystem:setAutoCarrySpeedEnabled(on)
-        if on and not useCarrySystem then
-            -- Carry system kapaliysa hareket boost icin ac
-            useCarrySystem = true
-            CarrySystem:start()
-            if carrySystemToggleSetter then pcall(carrySystemToggleSetter, true) end
-        end
-        saveAllSettings()
-    end)
-    if autoCarrySpeedToggleSetter then
-        autoCarrySpeedToggleSetter(CarrySystem.autoCarrySpeedEnabled == true)
-    end
 
     mkSect(speedPage, "Auto Carry Speeds")
     do local row = mkRow(speedPage, 38); mkLabel(row, "Normal Speed"); carrySysNormalBox = mkBox(row, CarrySystem.normalSpeed, 50, 56, function(v) if v > 0 and v <= 500 then CarrySystem:setNormalSpeed(v); saveAllSettings() end end) end
