@@ -178,7 +178,7 @@ local function applyButtonAssetBackground(parent)
     img.BackgroundTransparency = 1
     img.BorderSizePixel = 0
     img.ScaleType = Enum.ScaleType.Crop
-    img.ImageTransparency = 0.28
+    img.ImageTransparency = 0.08
     img.ImageColor3 = Color3.fromRGB(255, 255, 255)
     img.ZIndex = math.max((parent.ZIndex or 1), 1)
     img.ClipsDescendants = true
@@ -194,7 +194,7 @@ local function applyButtonAssetBackground(parent)
 
     local id = tostring(BUTTON_ASSET_ID)
     img.Image = "rbxassetid://" .. id
-    task.delay(0.8, function()
+    task.delay(0.6, function()
         if img and img.Parent and img.Image == "rbxassetid://" .. id then
             pcall(function()
                 img.Image = "rbxthumb://type=Asset&id=" .. id .. "&w=420&h=420"
@@ -202,12 +202,12 @@ local function applyButtonAssetBackground(parent)
         end
     end)
 
-    -- Yazilarin okunmasi icin hafif koyu overlay
+    -- Hafif overlay (asset daha net, yazi stroke ile okunur)
     local ov = Instance.new("Frame")
     ov.Name = "BtnAssetOverlay"
     ov.Size = UDim2.new(1, 0, 1, 0)
     ov.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    ov.BackgroundTransparency = 0.55
+    ov.BackgroundTransparency = 0.62
     ov.BorderSizePixel = 0
     ov.ZIndex = img.ZIndex + 1
     ov.Parent = parent
@@ -5788,11 +5788,11 @@ function paintFloatingBtn(btnFrame, active)
             bg.Enabled = false
         end
         if assetBg then
-            assetBg.ImageTransparency = 0.35
+            assetBg.ImageTransparency = 0.12
             assetBg.Visible = true
         end
         if assetOv then
-            assetOv.BackgroundTransparency = 0.35
+            assetOv.BackgroundTransparency = 0.40
             assetOv.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
         end
         if label then
@@ -5819,11 +5819,11 @@ function paintFloatingBtn(btnFrame, active)
             bg.Enabled = false
         end
         if assetBg then
-            assetBg.ImageTransparency = 0.22
+            assetBg.ImageTransparency = 0.05
             assetBg.Visible = true
         end
         if assetOv then
-            assetOv.BackgroundTransparency = 0.5
+            assetOv.BackgroundTransparency = 0.58
             assetOv.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
         end
         if label then
@@ -6600,7 +6600,7 @@ function resetFloatingPositions()
         instaResetFloatingPos = nil
     end
     if pbFrame then
-        pbFrame.Position = UDim2.new(0.5, -200, 1, -60)
+        pbFrame.Position = UDim2.new(0.5, -220, 1, -66)
         savedProgressBarPos = nil
     end
     savedMobilePanelPos = nil
@@ -7585,48 +7585,111 @@ function buildGui()
     -- Logo image removed (was covering background)
 
     local titleFrame = Instance.new("Frame", main)
-    titleFrame.Size = UDim2.new(1, -120, 0, 40)
-    titleFrame.Position = UDim2.new(0, 14, 0, 4)
-    titleFrame.BackgroundTransparency = 1
+    titleFrame.Name = "TitleFrame"
+    titleFrame.Size = UDim2.new(1, -100, 0, 44)
+    titleFrame.Position = UDim2.new(0, 10, 0, 4)
+    titleFrame.BackgroundColor3 = Color3.fromRGB(8, 10, 14)
+    titleFrame.BackgroundTransparency = 0.25
+    titleFrame.BorderSizePixel = 0
+    titleFrame.ClipsDescendants = true
     titleFrame.ZIndex = 20
+    Instance.new("UICorner", titleFrame).CornerRadius = UDim.new(0, 12)
+    local titleStroke = Instance.new("UIStroke", titleFrame)
+    titleStroke.Color = Color3.fromRGB(90, 210, 230)
+    titleStroke.Thickness = 1.2
+    titleStroke.Transparency = 0.35
+
+    local titleBg = Instance.new("ImageLabel", titleFrame)
+    titleBg.Name = "TitleAssetBg"
+    titleBg.Size = UDim2.new(1, 0, 1, 0)
+    titleBg.BackgroundTransparency = 1
+    titleBg.ScaleType = Enum.ScaleType.Crop
+    titleBg.ImageTransparency = 0.12
+    titleBg.ZIndex = 20
+    titleBg.Image = "rbxassetid://124268985896208"
+    Instance.new("UICorner", titleBg).CornerRadius = UDim.new(0, 12)
+    task.delay(0.5, function()
+        if titleBg and titleBg.Parent then
+            pcall(function()
+                titleBg.Image = "rbxthumb://type=Asset&id=124268985896208&w=768&h=432"
+            end)
+        end
+    end)
+    local titleWash = Instance.new("Frame", titleFrame)
+    titleWash.Size = UDim2.new(1, 0, 1, 0)
+    titleWash.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    titleWash.BackgroundTransparency = 0.5
+    titleWash.BorderSizePixel = 0
+    titleWash.ZIndex = 21
+    Instance.new("UICorner", titleWash).CornerRadius = UDim.new(0, 12)
 
     local titleLabel = Instance.new("TextLabel", titleFrame)
-    titleLabel.Size = UDim2.new(1, 0, 1, 0)
+    titleLabel.Name = "TitleLabel"
+    titleLabel.Size = UDim2.new(1, -12, 0, 22)
+    titleLabel.Position = UDim2.new(0, 10, 0, 2)
     titleLabel.BackgroundTransparency = 1
     titleLabel.Text = "Sakura.vs"
     titleLabel.TextColor3 = WHITE
     titleLabel.Font = Enum.Font.GothamBlack
-    titleLabel.TextSize = 22
+    titleLabel.TextSize = 18
     titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    titleLabel.ZIndex = 21
+    titleLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    titleLabel.TextStrokeTransparency = 0.3
+    titleLabel.ZIndex = 23
     applyShimmerToText(titleLabel, 0.9)
 
+    local discordTitle = Instance.new("TextLabel", titleFrame)
+    discordTitle.Name = "DiscordText"
+    discordTitle.Size = UDim2.new(1, -12, 0, 16)
+    discordTitle.Position = UDim2.new(0, 10, 0, 24)
+    discordTitle.BackgroundTransparency = 1
+    discordTitle.Text = "discord.gg/SakuraDuels"
+    discordTitle.TextColor3 = Color3.fromRGB(160, 220, 235)
+    discordTitle.Font = Enum.Font.GothamBold
+    discordTitle.TextSize = 12
+    discordTitle.TextXAlignment = Enum.TextXAlignment.Left
+    discordTitle.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    discordTitle.TextStrokeTransparency = 0.35
+    discordTitle.ZIndex = 23
+    applyShimmerToText(discordTitle, 0.85)
+
     local closeBtn = Instance.new("TextButton", main)
-    closeBtn.Size = UDim2.new(0, 32, 0, 32)
-    closeBtn.Position = UDim2.new(1, -42, 0, 8)
-    closeBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    closeBtn.BackgroundTransparency = 0
+    closeBtn.Name = "CloseBtn"
+    closeBtn.Size = UDim2.new(0, 30, 0, 30)
+    closeBtn.Position = UDim2.new(1, -40, 0, 10)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(18, 22, 28)
+    closeBtn.BackgroundTransparency = 0.1
     closeBtn.BorderSizePixel = 0
     closeBtn.Text = "−"
-    closeBtn.TextColor3 = BLACK
+    closeBtn.TextColor3 = Color3.fromRGB(230, 235, 240)
     closeBtn.Font = Enum.Font.GothamBold
-    closeBtn.TextSize = 26
+    closeBtn.TextSize = 22
     closeBtn.AutoButtonColor = false
     closeBtn.ZIndex = 200
     Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 8)
+    local closeStroke = Instance.new("UIStroke", closeBtn)
+    closeStroke.Color = Color3.fromRGB(90, 210, 230)
+    closeStroke.Thickness = 1.2
+    closeStroke.Transparency = 0.3
 
     closeBtn.MouseEnter:Connect(function()
-        TS:Create(closeBtn, TweenInfo.new(0.12), {TextColor3 = BLACK, BackgroundColor3 = Color3.fromRGB(255,255,255)}):Play()
+        TS:Create(closeBtn, TweenInfo.new(0.12), {
+            BackgroundColor3 = Color3.fromRGB(90, 210, 230),
+            TextColor3 = Color3.fromRGB(10, 12, 16)
+        }):Play()
     end)
     closeBtn.MouseLeave:Connect(function()
-        TS:Create(closeBtn, TweenInfo.new(0.12), {TextColor3 = BLACK, BackgroundColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+        TS:Create(closeBtn, TweenInfo.new(0.12), {
+            BackgroundColor3 = Color3.fromRGB(18, 22, 28),
+            TextColor3 = Color3.fromRGB(230, 235, 240)
+        }):Play()
     end)
 
     miniBtn = Instance.new("TextButton", gui)
-    miniBtn.Size = UDim2.new(0, 110, 0, 28)
+    miniBtn.Size = UDim2.new(0, 128, 0, 32)
     miniBtn.Position = UDim2.new(0, 12, 0, 52)
-    miniBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 28)
-    miniBtn.BackgroundTransparency = 0.08
+    miniBtn.BackgroundColor3 = Color3.fromRGB(12, 14, 18)
+    miniBtn.BackgroundTransparency = 0.15
     miniBtn.BorderSizePixel = 0
     miniBtn.Text = "Sakura.vs"
     miniBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -7635,11 +7698,28 @@ function buildGui()
     miniBtn.ZIndex = 20
     miniBtn.Visible = false
     miniBtn.AutoButtonColor = false
-    Instance.new("UICorner", miniBtn).CornerRadius = UDim.new(1, 0) -- fully rounded pill
+    miniBtn.ClipsDescendants = true
+    Instance.new("UICorner", miniBtn).CornerRadius = UDim.new(1, 0)
+    local miniBg = Instance.new("ImageLabel", miniBtn)
+    miniBg.Size = UDim2.new(1, 0, 1, 0)
+    miniBg.BackgroundTransparency = 1
+    miniBg.ScaleType = Enum.ScaleType.Crop
+    miniBg.ImageTransparency = 0.15
+    miniBg.ZIndex = 20
+    miniBg.Image = "rbxassetid://124268985896208"
+    Instance.new("UICorner", miniBg).CornerRadius = UDim.new(1, 0)
+    local miniWash = Instance.new("Frame", miniBtn)
+    miniWash.Size = UDim2.new(1, 0, 1, 0)
+    miniWash.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    miniWash.BackgroundTransparency = 0.45
+    miniWash.BorderSizePixel = 0
+    miniWash.ZIndex = 21
+    Instance.new("UICorner", miniWash).CornerRadius = UDim.new(1, 0)
+    miniBtn.ZIndex = 22
     local miniStroke = Instance.new("UIStroke", miniBtn)
-    miniStroke.Color = Color3.fromRGB(255, 255, 255)
-    miniStroke.Thickness = 1
-    miniStroke.Transparency = 0.55
+    miniStroke.Color = Color3.fromRGB(90, 210, 230)
+    miniStroke.Thickness = 1.3
+    miniStroke.Transparency = 0.25
     applyShimmerToText(miniBtn, 0.9)
 
     local slideTween = nil
@@ -8277,9 +8357,8 @@ function buildGui()
     do local row = mkRow(speedPage, 38); mkLabel(row, "Lagger Speed"); carrySysLaggerBox = mkBox(row, CarrySystem.laggerSpeed, 50, 56, function(v) if v > 0 and v <= 500 then CarrySystem:setLaggerSpeed(v); saveAllSettings() end end) end
     do local row = mkRow(speedPage, 38); mkLabel(row, "Lagger Carry Spd"); carrySysLaggerCarryBox = mkBox(row, CarrySystem.laggerCarrySpeed, 50, 56, function(v) if v > 0 and v <= 500 then CarrySystem:setLaggerCarrySpeed(v); saveAllSettings() end end) end
 
-    mkSect(speedPage, "Soft Steal Settings")
-    do local row = mkRow(speedPage, 38); mkLabel(row, "Soft Steal Speed"); carrySysSoftStealSpeedBox = mkBox(row, CarrySystem.softStealSpeed, 50, 56, function(v) if v > 0 and v <= 500 then CarrySystem:setSoftStealSpeed(v); saveAllSettings() end end) end
-    do local row = mkRow(speedPage, 38); mkLabel(row, "Soft Steal Radius"); carrySysSoftStealRadiusBox = mkBox(row, CarrySystem.softStealRadius, 50, 56, function(v) if v > 0 then CarrySystem:setSoftStealRadius(v); saveAllSettings() end end) end
+    -- Soft Steal Settings kaldirildi (GUI temizligi)
+    -- Soft steal arka planda Enable Auto Carry ile birlikte calisir
 
     mkSect(speedPage, "Sakura.vs Anti Bat")
     local setAntiBatPanelVisual = nil
@@ -9250,171 +9329,201 @@ function buildGui()
     spacer.LayoutOrder = getNextOrder(keyPage)
     spacer.ZIndex = 7
 
+    -- ============================================================
+    -- AUTO STEAL BAR — foto tasarim (STEAL / bar / FPS + PING)
+    -- Asset: 124268985896208 (daha net gorunsun)
+    -- ============================================================
+    local STEAL_BAR_ASSET_ID = "124268985896208"
+
     pbFrame = Instance.new("Frame", gui)
-    pbFrame.Size = UDim2.new(0, 400, 0, 70)
-    pbFrame.Position = UDim2.new(0.5, -200, 1, -60)
-    pbFrame.BackgroundColor3 = Color3.fromRGB(10, 11, 13)
-    pbFrame.BackgroundTransparency = 0.05
+    pbFrame.Size = UDim2.new(0, 440, 0, 56)
+    pbFrame.Position = UDim2.new(0.5, -220, 1, -66)
+    pbFrame.BackgroundColor3 = Color3.fromRGB(6, 8, 12)
+    pbFrame.BackgroundTransparency = 0.2
     pbFrame.BorderSizePixel = 0
     pbFrame.Active = true
     pbFrame.ClipsDescendants = true
     pbFrame.Visible = CONFIG.AUTO_STEAL_ENABLED
-    pbFrame.ZIndex = 10
+    pbFrame.ZIndex = 50
 
-    -- Steal progress bar için ana GUI ile aynı background
+    local pbCorner = Instance.new("UICorner", pbFrame)
+    pbCorner.CornerRadius = UDim.new(0, 16)
+
+    local pbBorder = Instance.new("UIStroke", pbFrame)
+    pbBorder.Name = "StealBarStroke"
+    pbBorder.Color = Color3.fromRGB(90, 210, 230)
+    pbBorder.Thickness = 1.8
+    pbBorder.Transparency = 0.1
+    pbBorder.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+
     local pbBackground = Instance.new("ImageLabel")
     pbBackground.Name = "StealBarBackground"
     pbBackground.Size = UDim2.new(1, 0, 1, 0)
-    pbBackground.Position = UDim2.new(0, 0, 0, 0)
     pbBackground.BackgroundTransparency = 1
     pbBackground.BorderSizePixel = 0
     pbBackground.ScaleType = Enum.ScaleType.Crop
-    pbBackground.ImageTransparency = 0.08
-    pbBackground.ZIndex = 10
+    pbBackground.ImageTransparency = 0.05
+    pbBackground.ImageColor3 = Color3.fromRGB(255, 255, 255)
+    pbBackground.ZIndex = 50
     pbBackground.ClipsDescendants = true
     pbBackground.Parent = pbFrame
-    Instance.new("UICorner", pbBackground).CornerRadius = UDim.new(0, 12)
-    applyBackgroundImage(pbBackground)
+    Instance.new("UICorner", pbBackground).CornerRadius = UDim.new(0, 16)
+    pbBackground.Image = "rbxassetid://" .. STEAL_BAR_ASSET_ID
+    task.delay(0.5, function()
+        if pbBackground and pbBackground.Parent then
+            pcall(function()
+                pbBackground.Image = "rbxthumb://type=Asset&id=" .. STEAL_BAR_ASSET_ID .. "&w=768&h=432"
+            end)
+        end
+    end)
 
-    -- İçeriği background'ın üstünde tut
+    -- Cok hafif overlay — asset net, yazi stroke ile okunur
+    local pbOverlay = Instance.new("Frame", pbFrame)
+    pbOverlay.Name = "StealBarOverlay"
+    pbOverlay.Size = UDim2.new(1, 0, 1, 0)
+    pbOverlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    pbOverlay.BackgroundTransparency = 0.55
+    pbOverlay.BorderSizePixel = 0
+    pbOverlay.ZIndex = 51
+    Instance.new("UICorner", pbOverlay).CornerRadius = UDim.new(0, 16)
+
     pbScale = Instance.new("UIScale", pbFrame)
     pbScale.Scale = uiScaleValue / 100
 
     if savedProgressBarPos then
         pbFrame.Position = UDim2.new(
             savedProgressBarPos.XScale or 0.5,
-            savedProgressBarPos.XOffset or -200,
+            savedProgressBarPos.XOffset or -220,
             savedProgressBarPos.YScale or 1,
-            savedProgressBarPos.YOffset or -60
+            savedProgressBarPos.YOffset or -66
         )
     end
 
-    local corner = Instance.new("UICorner", pbFrame)
-    corner.CornerRadius = UDim.new(0, 12)
+    -- SOL: STEAL + %
+    local leftCol = Instance.new("Frame", pbFrame)
+    leftCol.Name = "LeftCol"
+    leftCol.Size = UDim2.new(0, 78, 1, -8)
+    leftCol.Position = UDim2.new(0, 12, 0, 4)
+    leftCol.BackgroundTransparency = 1
+    leftCol.ZIndex = 55
 
-    local border = Instance.new("UIStroke", pbFrame)
-    border.Color = getThemeColor()
-    border.Thickness = 1.5
-    border.Transparency = 0.3
-    border.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    local stealTitle = Instance.new("TextLabel", leftCol)
+    stealTitle.Name = "StealTitle"
+    stealTitle.Size = UDim2.new(1, 0, 0, 16)
+    stealTitle.Position = UDim2.new(0, 0, 0, 2)
+    stealTitle.BackgroundTransparency = 1
+    stealTitle.Text = "STEAL"
+    stealTitle.TextColor3 = Color3.fromRGB(235, 240, 245)
+    stealTitle.Font = Enum.Font.GothamBold
+    stealTitle.TextSize = 13
+    stealTitle.TextXAlignment = Enum.TextXAlignment.Left
+    stealTitle.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    stealTitle.TextStrokeTransparency = 0.25
+    stealTitle.ZIndex = 56
 
-    local discordLabelTop = Instance.new("TextLabel", pbFrame)
-    discordLabelTop.Name = "DiscordLabel"
-    discordLabelTop.Size = UDim2.new(1, 0, 0, 18)
-    discordLabelTop.Position = UDim2.new(0.5, 0, 0, 2)
-    discordLabelTop.AnchorPoint = Vector2.new(0.5, 0)
-    discordLabelTop.BackgroundTransparency = 1
-    discordLabelTop.Text = "discord.gg/SakuraDuels"
-    discordLabelTop.TextColor3 = getThemeColor()
-    discordLabelTop.Font = Enum.Font.GothamBold
-    discordLabelTop.TextSize = 12
-    discordLabelTop.TextScaled = true
-    discordLabelTop.TextXAlignment = Enum.TextXAlignment.Center
-    discordLabelTop.ZIndex = 15
-    applyShimmerToText(discordLabelTop, 0.9)
-
-    local topRow = Instance.new("Frame", pbFrame)
-    topRow.Size = UDim2.new(1, 0, 0, 22)
-    topRow.Position = UDim2.new(0, 0, 0, 22)
-    topRow.BackgroundTransparency = 1
-    topRow.ZIndex = 12
-
-    progressPct = Instance.new("TextLabel", topRow)
-    progressPct.Size = UDim2.new(0.4, 0, 1, 0)
-    progressPct.Position = UDim2.new(0, 12, 0, 0)
+    progressPct = Instance.new("TextLabel", leftCol)
+    progressPct.Name = "ProgressPct"
+    progressPct.Size = UDim2.new(1, 0, 0, 22)
+    progressPct.Position = UDim2.new(0, 0, 0, 18)
     progressPct.BackgroundTransparency = 1
     progressPct.Text = "0%"
-    progressPct.TextColor3 = Color3.fromRGB(255,255,255)
+    progressPct.TextColor3 = Color3.fromRGB(255, 255, 255)
     progressPct.Font = Enum.Font.GothamBlack
-    progressPct.TextSize = 14
+    progressPct.TextSize = 20
     progressPct.TextXAlignment = Enum.TextXAlignment.Left
-    progressPct.TextStrokeColor3 = Color3.fromRGB(0,0,0)
+    progressPct.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
     progressPct.TextStrokeTransparency = 0.2
-    progressPct.ZIndex = 13
+    progressPct.ZIndex = 56
 
-    local fpsNeon = Instance.new("TextLabel", topRow)
-    fpsNeon.Name = "FPSNeon"
-    fpsNeon.Size = UDim2.new(0.2, 0, 1, 0)
-    fpsNeon.Position = UDim2.new(0.4, 0, 0, 0)
-    fpsNeon.BackgroundTransparency = 1
-    fpsNeon.Text = "--FPS · --ms"
-    fpsNeon.TextColor3 = getThemeColor()
-    fpsNeon.Font = Enum.Font.GothamBold
-    fpsNeon.TextSize = 12
-    fpsNeon.TextScaled = true
-    fpsNeon.TextXAlignment = Enum.TextXAlignment.Center
-    fpsNeon.TextStrokeColor3 = Color3.fromRGB(0,0,0)
-    fpsNeon.TextStrokeTransparency = 0.2
-    fpsNeon.ZIndex = 13
-
-    task.spawn(function()
-        local t = 0
-        local color = getThemeColor()
-        local baseColor = color
-        while fpsNeon and fpsNeon.Parent do
-            t = t + 0.03
-            local hueShift = math.sin(t * 1.5) * 0.08
-            local newColor = Color3.new(
-                _clamp(baseColor.r + hueShift, 0, 1),
-                _clamp(baseColor.g + hueShift * 0.6, 0, 1),
-                _clamp(baseColor.b - hueShift * 0.3, 0, 1)
-            )
-            fpsNeon.TextColor3 = newColor
-            local bright = 0.8 + 0.2 * math.sin(t * 2.5)
-            fpsNeon.TextStrokeTransparency = 0.1 + (1 - bright) * 0.3
-            task.wait(0.05)
-        end
-    end)
-
+    -- ORTA: progress
     local progressRow = Instance.new("Frame", pbFrame)
-    progressRow.Size = UDim2.new(1, -16, 0, 16)
-    progressRow.Position = UDim2.new(0, 8, 0, 48)
+    progressRow.Name = "ProgressRow"
+    progressRow.Size = UDim2.new(1, -220, 0, 16)
+    progressRow.Position = UDim2.new(0, 96, 0.5, -8)
     progressRow.BackgroundTransparency = 1
-    progressRow.ZIndex = 11
+    progressRow.ZIndex = 54
 
     local fillRegion = Instance.new("Frame", progressRow)
+    fillRegion.Name = "FillRegion"
     fillRegion.Size = UDim2.new(1, 0, 1, 0)
-    fillRegion.BackgroundColor3 = Color3.fromRGB(16, 17, 20)
-    fillRegion.BackgroundTransparency = 0.15
+    fillRegion.BackgroundColor3 = Color3.fromRGB(18, 22, 28)
+    fillRegion.BackgroundTransparency = 0.2
     fillRegion.BorderSizePixel = 0
     fillRegion.ClipsDescendants = true
-    fillRegion.ZIndex = 12
-    local fillCorner = Instance.new("UICorner", fillRegion)
-    fillCorner.CornerRadius = UDim.new(0, 10)
+    fillRegion.ZIndex = 55
+    Instance.new("UICorner", fillRegion).CornerRadius = UDim.new(1, 0)
+    local fillStroke = Instance.new("UIStroke", fillRegion)
+    fillStroke.Color = Color3.fromRGB(70, 90, 100)
+    fillStroke.Thickness = 1
+    fillStroke.Transparency = 0.35
 
     progressFill = Instance.new("Frame", fillRegion)
+    progressFill.Name = "ProgressFill"
     progressFill.Size = UDim2.new(0, 0, 1, 0)
-    progressFill.Position = UDim2.new(0, 0, 0, 0)
-    progressFill.BackgroundColor3 = getThemeColor()
+    progressFill.BackgroundColor3 = Color3.fromRGB(90, 210, 230)
     progressFill.BorderSizePixel = 0
-    progressFill.ZIndex = 13
-    local fillCorner2 = Instance.new("UICorner", progressFill)
-    fillCorner2.CornerRadius = UDim.new(0, 10)
-
+    progressFill.ZIndex = 56
+    Instance.new("UICorner", progressFill).CornerRadius = UDim.new(1, 0)
     local fillGrad = Instance.new("UIGradient", progressFill)
-    local color2 = getThemeColor()
     fillGrad.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0.00, color2),
-        ColorSequenceKeypoint.new(0.50, Color3.fromRGB(200,200,210)),
-        ColorSequenceKeypoint.new(1.00, Color3.fromRGB(255,255,255)),
+        ColorSequenceKeypoint.new(0.00, Color3.fromRGB(40, 150, 180)),
+        ColorSequenceKeypoint.new(0.50, Color3.fromRGB(120, 225, 245)),
+        ColorSequenceKeypoint.new(1.00, Color3.fromRGB(230, 250, 255)),
     })
-    fillGrad.Rotation = 0
 
     local glowEnd = Instance.new("Frame", progressFill)
-    glowEnd.Size = UDim2.new(0, 20, 1, 0)
-    glowEnd.Position = UDim2.new(1, -20, 0, 0)
-    glowEnd.BackgroundColor3 = Color3.fromRGB(255,255,255)
-    glowEnd.BackgroundTransparency = 0.7
+    glowEnd.Size = UDim2.new(0, 18, 1, 0)
+    glowEnd.Position = UDim2.new(1, -18, 0, 0)
+    glowEnd.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    glowEnd.BackgroundTransparency = 0.5
     glowEnd.BorderSizePixel = 0
-    glowEnd.ZIndex = 14
-    local glowCorner2 = Instance.new("UICorner", glowEnd)
-    glowCorner2.CornerRadius = UDim.new(1, 0)
-    local glowGrad2 = Instance.new("UIGradient", glowEnd)
-    glowGrad2.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0.00, Color3.fromRGB(255,255,255)),
-        ColorSequenceKeypoint.new(1.00, Color3.fromRGB(255,255,255)),
-    })
-    glowGrad2.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.8), NumberSequenceKeypoint.new(1, 0)})
+    glowEnd.ZIndex = 57
+    Instance.new("UICorner", glowEnd).CornerRadius = UDim.new(1, 0)
+
+    -- SAĞ: FPS + PING
+    local rightCol = Instance.new("Frame", pbFrame)
+    rightCol.Name = "RightCol"
+    rightCol.Size = UDim2.new(0, 108, 1, -8)
+    rightCol.Position = UDim2.new(1, -116, 0, 4)
+    rightCol.BackgroundTransparency = 1
+    rightCol.ZIndex = 55
+
+    local fpsNeon = Instance.new("TextLabel", rightCol)
+    fpsNeon.Name = "FPSNeon"
+    fpsNeon.Size = UDim2.new(1, 0, 0, 18)
+    fpsNeon.Position = UDim2.new(0, 0, 0, 4)
+    fpsNeon.BackgroundTransparency = 1
+    fpsNeon.Text = "FPS --"
+    fpsNeon.TextColor3 = Color3.fromRGB(210, 220, 230)
+    fpsNeon.Font = Enum.Font.GothamBold
+    fpsNeon.TextSize = 13
+    fpsNeon.TextXAlignment = Enum.TextXAlignment.Right
+    fpsNeon.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    fpsNeon.TextStrokeTransparency = 0.3
+    fpsNeon.ZIndex = 56
+
+    local pingLbl = Instance.new("TextLabel", rightCol)
+    pingLbl.Name = "PingLabel"
+    pingLbl.Size = UDim2.new(1, 0, 0, 18)
+    pingLbl.Position = UDim2.new(0, 0, 0, 24)
+    pingLbl.BackgroundTransparency = 1
+    pingLbl.Text = "PING --ms"
+    pingLbl.TextColor3 = Color3.fromRGB(180, 195, 210)
+    pingLbl.Font = Enum.Font.GothamMedium
+    pingLbl.TextSize = 12
+    pingLbl.TextXAlignment = Enum.TextXAlignment.Right
+    pingLbl.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    pingLbl.TextStrokeTransparency = 0.35
+    pingLbl.ZIndex = 56
+
+    -- Uyumluluk: DiscordLabel (gizli) + theme rengi icin
+    local discordLabelTop = Instance.new("TextLabel", pbFrame)
+    discordLabelTop.Name = "DiscordLabel"
+    discordLabelTop.Visible = false
+    discordLabelTop.Size = UDim2.new(0, 0, 0, 0)
+    discordLabelTop.Text = "discord.gg/SakuraDuels"
+    discordLabelTop.BackgroundTransparency = 1
+    discordLabelTop.ZIndex = 1
 
     drag(pbFrame)
 
@@ -9437,8 +9546,11 @@ function buildGui()
         while true do
             local ping = 0
             pcall(function() ping = LP:GetNetworkPing() * 1000 end)
-            if fpsNeon then
-                fpsNeon.Text = string.format("%dFPS · %dms", _floor(fpsAvg + 0.5), _floor(ping + 0.5))
+            if fpsNeon and fpsNeon.Parent then
+                fpsNeon.Text = string.format("FPS %d", _floor(fpsAvg + 0.5))
+            end
+            if pingLbl and pingLbl.Parent then
+                pingLbl.Text = string.format("PING %dms", _floor(ping + 0.5))
             end
             task.wait(0.75)
         end
@@ -10452,9 +10564,9 @@ function updateUIFromLoaded()
     if savedProgressBarPos and pbFrame then
         pbFrame.Position = UDim2.new(
             savedProgressBarPos.XScale or 0.5,
-            savedProgressBarPos.XOffset or -200,
+            savedProgressBarPos.XOffset or -220,
             savedProgressBarPos.YScale or 1,
-            savedProgressBarPos.YOffset or -60
+            savedProgressBarPos.YOffset or -66
         )
     end
 
