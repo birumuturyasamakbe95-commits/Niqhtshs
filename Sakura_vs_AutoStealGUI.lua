@@ -239,6 +239,8 @@ local CarrySystem = {
     softStealRadius = 10,
     softStealSpeed = 30,
     softStealLatched = false,
+    -- Pet eline alinca Carry Speed, birakinca Normal
+    autoCarrySpeedEnabled = false,
 
     _isCarrying = false,
     _lastCarryCheck = 0,
@@ -314,6 +316,10 @@ function CarrySystem:getActiveSpeed()
     end
     if self.laggerMode == 1 then return self.laggerSpeed end
     if self.laggerMode == 2 then return self.laggerCarrySpeed end
+    -- Auto Carry Speed: pet eldeyken carry, birakinca normal
+    if self.autoCarrySpeedEnabled and self:isCarrying() then
+        return self.carrySpeed
+    end
     if self.speedToggled then return self.carrySpeed end
     return self.normalSpeed
 end
@@ -331,6 +337,9 @@ function CarrySystem:getStatus()
     end
     if self.laggerMode == 1 then return "LAGGER", self.laggerSpeed end
     if self.laggerMode == 2 then return "LAGGER CARRY", self.laggerCarrySpeed end
+    if self.autoCarrySpeedEnabled and self:isCarrying() then
+        return "AUTO CARRY SPD", self.carrySpeed
+    end
     if self.speedToggled then return "CARRY", self.carrySpeed end
     return "NORMAL", self.normalSpeed
 end
@@ -587,6 +596,12 @@ function CarrySystem:setSoftStealEnabled(enabled)
     else self:stopSoftStealScanner(); self.softStealLatched = false end
 end
 function CarrySystem:toggleSoftSteal() self:setSoftStealEnabled(not self.softStealEnabled) end
+function CarrySystem:setAutoCarrySpeedEnabled(enabled)
+    self.autoCarrySpeedEnabled = enabled and true or false
+end
+function CarrySystem:toggleAutoCarrySpeed()
+    self:setAutoCarrySpeedEnabled(not self.autoCarrySpeedEnabled)
+end
 function CarrySystem:isRunning() return self._heartbeatConn ~= nil end
 function CarrySystem:getCurrentSpeed() return self:getActiveSpeed() end
 
@@ -2280,6 +2295,7 @@ tabButtons = nil
 colorSelectorLabel = nil
 
 carrySystemToggleSetter = nil
+autoCarrySpeedToggleSetter = nil
 carrySysNormalBox = nil
 carrySysCarryBox = nil
 carrySysLaggerBox = nil
@@ -6202,6 +6218,7 @@ function buildConfigTable()
         outfitIndex = currentOutfitIndex,
         themeColor = currentColorTheme,
         useCarrySystem = useCarrySystem,
+        autoCarrySpeedEnabled = CarrySystem.autoCarrySpeedEnabled,
         carrySysNormal = CarrySystem.normalSpeed,
         carrySysCarry = CarrySystem.carrySpeed,
         carrySysLagger = CarrySystem.laggerSpeed,
@@ -6513,7 +6530,8 @@ function loadAllSettings()
         end)
     end
 
-    useCarrySystem = data.useCarrySystem or false
+    useCarrySystem = data.useCarrySystem
+    if data.autoCarrySpeedEnabled ~= nil then CarrySystem.autoCarrySpeedEnabled = data.autoCarrySpeedEnabled and true or false end or false
     CarrySystem.normalSpeed = data.carrySysNormal or NS
     CarrySystem.carrySpeed = data.carrySysCarry or CS
     CarrySystem.laggerSpeed = data.carrySysLagger or LAGGER_SPEED
@@ -6559,6 +6577,7 @@ function forceResetUI()
     if carrySysSoftStealSpeedBox then carrySysSoftStealSpeedBox.Text = tostring(CarrySystem.softStealSpeed) end
     if carrySysSoftStealRadiusBox then carrySysSoftStealRadiusBox.Text = tostring(CarrySystem.softStealRadius) end
     if carrySystemToggleSetter then carrySystemToggleSetter(useCarrySystem) end
+    if autoCarrySpeedToggleSetter then autoCarrySpeedToggleSetter(CarrySystem.autoCarrySpeedEnabled == true) end
     local function safeSet(fn, val) if fn then fn(val) end end
     safeSet(autoBatSetVisual, false)
     safeSet(autoLeftSetVisual, false)
@@ -7715,14 +7734,13 @@ function buildGui()
     discordTitle.Position = UDim2.new(0, 10, 0, 24)
     discordTitle.BackgroundTransparency = 1
     discordTitle.Text = "discord.gg/SakuraDuels"
-    discordTitle.TextColor3 = Color3.fromRGB(160, 220, 235)
+    discordTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
     discordTitle.Font = Enum.Font.GothamBold
     discordTitle.TextSize = 12
     discordTitle.TextXAlignment = Enum.TextXAlignment.Left
     discordTitle.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-    discordTitle.TextStrokeTransparency = 0.35
+    discordTitle.TextStrokeTransparency = 0.25
     discordTitle.ZIndex = 23
-    applyShimmerToText(discordTitle, 0.85)
 
     local closeBtn = Instance.new("TextButton", main)
     closeBtn.Name = "CloseBtn"
@@ -8195,143 +8213,63 @@ function buildGui()
         return sv
     end
 
-    -- Acilir secenek menusu ( < > yok )
-    -- page: drop frame parent | row: buton satiri | default: baslangic yazisi
-    -- options: string listesi | onPick(option): secilince
-    local function mkDropdown(page, row, default, options, onPick)
-        local openBtn = Instance.new("TextButton", row)
-        openBtn.Size = UDim2.new(0, 120, 0, 26)
-        openBtn.Position = UDim2.new(1, -128, 0.5, -13)
-        openBtn.BackgroundColor3 = INP
-        openBtn.BackgroundTransparency = 0.12
-        openBtn.BorderSizePixel = 0
-        openBtn.Text = tostring(default or "") .. "  ▼"
-        openBtn.TextColor3 = WHITE
-        openBtn.Font = Enum.Font.GothamBold
-        openBtn.TextSize = 12
-        openBtn.AutoButtonColor = false
-        openBtn.ZIndex = 12
-        Instance.new("UICorner", openBtn).CornerRadius = UDim.new(0, 8)
-        local openStroke = Instance.new("UIStroke", openBtn)
-        openStroke.Color = Color3.fromRGB(90, 210, 230)
-        openStroke.Thickness = 1.2
-        openStroke.Transparency = 0.35
-
-        local dropFrame = Instance.new("Frame", page)
-        dropFrame.Size = UDim2.new(1, -16, 0, 0)
-        dropFrame.BackgroundColor3 = Color3.fromRGB(12, 14, 18)
-        dropFrame.BackgroundTransparency = 0.12
-        dropFrame.BorderSizePixel = 0
-        dropFrame.Visible = false
-        dropFrame.ClipsDescendants = true
-        dropFrame.ZIndex = 30
-        dropFrame.LayoutOrder = getNextOrder(page)
-        Instance.new("UICorner", dropFrame).CornerRadius = UDim.new(0, 10)
-        local dropStroke = Instance.new("UIStroke", dropFrame)
-        dropStroke.Color = Color3.fromRGB(90, 210, 230)
-        dropStroke.Thickness = 1.2
-        dropStroke.Transparency = 0.3
-        local dropList = Instance.new("UIListLayout", dropFrame)
-        dropList.FillDirection = Enum.FillDirection.Vertical
-        dropList.Padding = UDim.new(0, 4)
-        dropList.HorizontalAlignment = Enum.HorizontalAlignment.Center
-        local dropPad = Instance.new("UIPadding", dropFrame)
-        dropPad.PaddingTop = UDim.new(0, 6)
-        dropPad.PaddingBottom = UDim.new(0, 6)
-
-        local expanded = false
-        local current = tostring(default or "")
-        local optButtons = {}
-        local function refresh()
-            for _, b in ipairs(optButtons) do
-                local active = (b.Name == current)
-                b.BackgroundColor3 = active and Color3.fromRGB(90, 210, 230) or Color3.fromRGB(22, 26, 32)
-                b.TextColor3 = active and Color3.fromRGB(8, 10, 14) or WHITE
-            end
-            openBtn.Text = current .. (expanded and "  ▲" or "  ▼")
-        end
-        for _, opt in ipairs(options or {}) do
-            local b = Instance.new("TextButton", dropFrame)
-            b.Name = tostring(opt)
-            b.Size = UDim2.new(1, -16, 0, 28)
-            b.BackgroundColor3 = Color3.fromRGB(22, 26, 32)
-            b.BorderSizePixel = 0
-            b.Text = tostring(opt)
-            b.TextColor3 = WHITE
-            b.Font = Enum.Font.GothamBold
-            b.TextSize = 13
-            b.AutoButtonColor = false
-            b.ZIndex = 31
-            Instance.new("UICorner", b).CornerRadius = UDim.new(0, 7)
-            b.MouseButton1Click:Connect(function()
-                current = tostring(opt)
-                expanded = false
-                dropFrame.Visible = false
-                dropFrame.Size = UDim2.new(1, -16, 0, 0)
-                refresh()
-                if onPick then pcall(onPick, current) end
-            end)
-            table.insert(optButtons, b)
-        end
-        openBtn.MouseButton1Click:Connect(function()
-            expanded = not expanded
-            if expanded then
-                local n = #(options or {})
-                dropFrame.Size = UDim2.new(1, -16, 0, 6 + n * 32 + 6)
-                dropFrame.Visible = true
-            else
-                dropFrame.Visible = false
-                dropFrame.Size = UDim2.new(1, -16, 0, 0)
-            end
-            refresh()
-        end)
-        refresh()
-        -- geriye donuk: .Text set edilebilir (label gibi)
-        local proxy = setmetatable({}, {
-            __newindex = function(_, k, v)
-                if k == "Text" then
-                    current = tostring(v or ""):gsub("%s*[▼▲]%s*$", "")
-                    refresh()
-                end
-            end,
-            __index = function(_, k)
-                if k == "Text" then return current end
-                return openBtn[k]
-            end,
-        })
-        return proxy
-    end
-
-    -- Eski mkSelector cagrilari icin uyumluluk: row uzerinde dropdown
-    -- parent = row, cb(dir, update) yerine options ile secim
     local function mkSelector(parent, default, options, cb)
-        -- parent row; page = parent.Parent
-        local page = parent and parent.Parent
-        if not page then
-            -- fallback basit buton
-            local lbl = Instance.new("TextLabel", parent)
-            lbl.Size = UDim2.new(0, 120, 0, 26)
-            lbl.Position = UDim2.new(1, -128, 0.5, -13)
-            lbl.BackgroundTransparency = 1
-            lbl.Text = tostring(default)
-            lbl.TextColor3 = WHITE
-            lbl.Font = Enum.Font.GothamBold
-            lbl.TextSize = 12
-            lbl.ZIndex = 9
-            return lbl
-        end
-        return mkDropdown(page, parent, default, options, function(opt)
-            if cb then
-                -- eski API dir+update bekliyordu; yeni: dogrudan secim
-                local function update(t) end
-                -- dropMode gibi dir kullananlar icin: secilen degeri ilet
-                pcall(cb, opt, function(t)
-                    -- no-op; mkDropdown zaten yaziyi gunceller
-                end)
-            end
+        local container = Instance.new("Frame", parent)
+        container.Size = UDim2.new(0, 160, 1, 0)
+        container.Position = UDim2.new(1, -168, 0, 0)
+        container.BackgroundTransparency = 1
+        container.ZIndex = 8
+        local leftBtn = Instance.new("TextButton", container)
+        leftBtn.Size = UDim2.new(0, 28, 0, 26)
+        leftBtn.Position = UDim2.new(0, 0, 0.5, -13)
+        leftBtn.BackgroundColor3 = INP
+        leftBtn.BackgroundTransparency = 0.2
+        leftBtn.BorderSizePixel = 0
+        leftBtn.Text = "<"
+        leftBtn.TextColor3 = WHITE
+        leftBtn.Font = Enum.Font.GothamBold
+        leftBtn.TextSize = 13
+        leftBtn.AutoButtonColor = false
+        leftBtn.ZIndex = 9
+        Instance.new("UICorner", leftBtn).CornerRadius = UDim.new(0, 6)
+        local leftStroke = Instance.new("UIStroke", leftBtn)
+        leftStroke.Color = ROW_BORDER
+        leftStroke.Thickness = 1
+        local label = Instance.new("TextLabel", container)
+        label.Size = UDim2.new(0, 80, 0, 26)
+        label.Position = UDim2.new(0.5, -40, 0.5, -13)
+        label.BackgroundTransparency = 1
+        label.Text = default
+        label.TextColor3 = WHITE
+        label.Font = Enum.Font.GothamBold
+        label.TextSize = 12
+        label.TextXAlignment = Enum.TextXAlignment.Center
+        label.ZIndex = 9
+        local rightBtn = Instance.new("TextButton", container)
+        rightBtn.Size = UDim2.new(0, 28, 0, 26)
+        rightBtn.Position = UDim2.new(1, -28, 0.5, -13)
+        rightBtn.BackgroundColor3 = INP
+        rightBtn.BackgroundTransparency = 0.2
+        rightBtn.BorderSizePixel = 0
+        rightBtn.Text = ">"
+        rightBtn.TextColor3 = WHITE
+        rightBtn.Font = Enum.Font.GothamBold
+        rightBtn.TextSize = 13
+        rightBtn.AutoButtonColor = false
+        rightBtn.ZIndex = 9
+        Instance.new("UICorner", rightBtn).CornerRadius = UDim.new(0, 6)
+        local rightStroke = Instance.new("UIStroke", rightBtn)
+        rightStroke.Color = ROW_BORDER
+        rightStroke.Thickness = 1
+        local function updateLabel(newText) label.Text = newText end
+        leftBtn.MouseButton1Click:Connect(function()
+            if cb then cb(-1, updateLabel) end
         end)
+        rightBtn.MouseButton1Click:Connect(function()
+            if cb then cb(1, updateLabel) end
+        end)
+        return label
     end
-
 
     local function mkBox(parent, default, w, xOff, cb)
         local tb = Instance.new("TextBox", parent)
@@ -8502,6 +8440,21 @@ function buildGui()
         saveAllSettings()
     end)
 
+    -- Pet eline alinca Carry Speed, birakinca Normal
+    autoCarrySpeedToggleSetter = mkToggle(speedPage, "Auto Carry Speed", function(on)
+        CarrySystem:setAutoCarrySpeedEnabled(on)
+        if on and not useCarrySystem then
+            -- Carry system kapaliysa hareket boost icin ac
+            useCarrySystem = true
+            CarrySystem:start()
+            if carrySystemToggleSetter then pcall(carrySystemToggleSetter, true) end
+        end
+        saveAllSettings()
+    end)
+    if autoCarrySpeedToggleSetter then
+        autoCarrySpeedToggleSetter(CarrySystem.autoCarrySpeedEnabled == true)
+    end
+
     mkSect(speedPage, "Auto Carry Speeds")
     do local row = mkRow(speedPage, 38); mkLabel(row, "Normal Speed"); carrySysNormalBox = mkBox(row, CarrySystem.normalSpeed, 50, 56, function(v) if v > 0 and v <= 500 then CarrySystem:setNormalSpeed(v); saveAllSettings() end end) end
     do local row = mkRow(speedPage, 38); mkLabel(row, "Carry Speed"); carrySysCarryBox = mkBox(row, CarrySystem.carrySpeed, 50, 56, function(v) if v > 0 and v <= 500 then CarrySystem:setCarrySpeed(v); saveAllSettings() end end) end
@@ -8662,10 +8615,10 @@ function buildGui()
     do
         local row = mkRow(combatPage, 38)
         mkLabel(row, "Drop Mode")
-        dropModeBtnRef = mkDropdown(combatPage, row, dropMode == 1 and "Fling" or "Jump Drop", {"Fling", "Jump Drop"}, function(opt)
+        dropModeBtnRef = mkSelector(row, dropMode == 1 and "Fling" or "Jump Drop", {"Fling", "Jump Drop"}, function(dir, update)
             if dropActive then stopDropBrainrot() end
-            dropMode = (opt == "Fling") and 1 or 2
-            pcall(saveAllSettings)
+            dropMode = dropMode == 1 and 2 or 1
+            update(dropMode == 1 and "Fling" or "Jump Drop")
         end)
     end
 
@@ -8954,43 +8907,141 @@ function buildGui()
     do
         local row = mkRow(visualPage, 38)
         mkLabel(row, "Anim Pack")
-        local animNames = {}
-        local currentAnimLabel = "Off"
+        local currentIndex = 1
         for i, entry in ipairs(ANIM_PACK_ORDER) do
-            table.insert(animNames, entry[2])
-            if entry[2] == currentAnimPack then currentAnimLabel = entry[2] end
+            if entry[2] == currentAnimPack then currentIndex = i; break end
         end
-        animSelectorLabel = mkDropdown(visualPage, row, currentAnimLabel, animNames, function(opt)
-            currentAnimPack = opt
-            if animSelectorLabel then animSelectorLabel.Text = opt end
-            if opt == "Off" then
-                pcall(stopAnimPack)
-            else
-                pcall(startAnimPack, opt)
+        local container = Instance.new("Frame", row)
+        container.Size = UDim2.new(0, 160, 1, 0)
+        container.Position = UDim2.new(1, -168, 0, 0)
+        container.BackgroundTransparency = 1
+        container.ZIndex = 8
+        local leftBtn = Instance.new("TextButton", container)
+        leftBtn.Size = UDim2.new(0, 28, 0, 26)
+        leftBtn.Position = UDim2.new(0, 0, 0.5, -13)
+        leftBtn.BackgroundColor3 = INP
+        leftBtn.BackgroundTransparency = 0.2
+        leftBtn.BorderSizePixel = 0
+        leftBtn.Text = "<"
+        leftBtn.TextColor3 = WHITE
+        leftBtn.Font = Enum.Font.GothamBold
+        leftBtn.TextSize = 13
+        leftBtn.AutoButtonColor = false
+        leftBtn.ZIndex = 9
+        Instance.new("UICorner", leftBtn).CornerRadius = UDim.new(0, 6)
+        local leftStroke = Instance.new("UIStroke", leftBtn)
+        leftStroke.Color = ROW_BORDER
+        leftStroke.Thickness = 1
+        animSelectorLabel = Instance.new("TextLabel", container)
+        animSelectorLabel.Size = UDim2.new(0, 80, 0, 26)
+        animSelectorLabel.Position = UDim2.new(0.5, -40, 0.5, -13)
+        animSelectorLabel.BackgroundTransparency = 1
+        animSelectorLabel.Text = ANIM_PACK_ORDER[currentIndex][2]
+        animSelectorLabel.TextColor3 = WHITE
+        animSelectorLabel.Font = Enum.Font.GothamBold
+        animSelectorLabel.TextSize = 12
+        animSelectorLabel.TextXAlignment = Enum.TextXAlignment.Center
+        animSelectorLabel.ZIndex = 9
+        local rightBtn = Instance.new("TextButton", container)
+        rightBtn.Size = UDim2.new(0, 28, 0, 26)
+        rightBtn.Position = UDim2.new(1, -28, 0.5, -13)
+        rightBtn.BackgroundColor3 = INP
+        rightBtn.BackgroundTransparency = 0.2
+        rightBtn.BorderSizePixel = 0
+        rightBtn.Text = ">"
+        rightBtn.TextColor3 = WHITE
+        rightBtn.Font = Enum.Font.GothamBold
+        rightBtn.TextSize = 13
+        rightBtn.AutoButtonColor = false
+        rightBtn.ZIndex = 9
+        Instance.new("UICorner", rightBtn).CornerRadius = UDim.new(0, 6)
+        local rightStroke = Instance.new("UIStroke", rightBtn)
+        rightStroke.Color = ROW_BORDER
+        rightStroke.Thickness = 1
+        local function updateAnimSelector(direction)
+            local idx = 1
+            for i, entry in ipairs(ANIM_PACK_ORDER) do
+                if entry[2] == currentAnimPack then idx = i; break end
             end
-            pcall(saveAllSettings)
-        end)
+            local newIdx = idx + direction
+            if newIdx < 1 then newIdx = #ANIM_PACK_ORDER end
+            if newIdx > #ANIM_PACK_ORDER then newIdx = 1 end
+            local packName = ANIM_PACK_ORDER[newIdx][2]
+            if packName == "Off" then
+                stopAnimPack()
+            else
+                startAnimPack(packName)
+            end
+        end
+        leftBtn.MouseButton1Click:Connect(function() updateAnimSelector(-1) end)
+        rightBtn.MouseButton1Click:Connect(function() updateAnimSelector(1) end)
     end
 
     do
         local row = mkRow(visualPage, 38)
         mkLabel(row, "Outfit")
-        local outfitNames = {}
-        for i, o in ipairs(OUTFITS) do
-            table.insert(outfitNames, o.label)
-        end
-        local curLabel = (OUTFITS[currentOutfitIndex] and OUTFITS[currentOutfitIndex].label) or "PURPLE"
-        outfitSelectorLabel = mkDropdown(visualPage, row, curLabel, outfitNames, function(opt)
-            for i, o in ipairs(OUTFITS) do
-                if o.label == opt then
-                    currentOutfitIndex = i
-                    pcall(function() applyOutfitByIndex(currentOutfitIndex) end)
-                    break
-                end
+        local container = Instance.new("Frame", row)
+        container.Size = UDim2.new(0, 160, 1, 0)
+        container.Position = UDim2.new(1, -168, 0, 0)
+        container.BackgroundTransparency = 1
+        container.ZIndex = 8
+        local leftBtn = Instance.new("TextButton", container)
+        leftBtn.Size = UDim2.new(0, 28, 0, 26)
+        leftBtn.Position = UDim2.new(0, 0, 0.5, -13)
+        leftBtn.BackgroundColor3 = INP
+        leftBtn.BackgroundTransparency = 0.2
+        leftBtn.BorderSizePixel = 0
+        leftBtn.Text = "<"
+        leftBtn.TextColor3 = WHITE
+        leftBtn.Font = Enum.Font.GothamBold
+        leftBtn.TextSize = 13
+        leftBtn.AutoButtonColor = false
+        leftBtn.ZIndex = 9
+        Instance.new("UICorner", leftBtn).CornerRadius = UDim.new(0, 6)
+        local leftStroke = Instance.new("UIStroke", leftBtn)
+        leftStroke.Color = ROW_BORDER
+        leftStroke.Thickness = 1
+        outfitSelectorLabel = Instance.new("TextLabel", container)
+        outfitSelectorLabel.Size = UDim2.new(0, 80, 0, 26)
+        outfitSelectorLabel.Position = UDim2.new(0.5, -40, 0.5, -13)
+        outfitSelectorLabel.BackgroundTransparency = 1
+        outfitSelectorLabel.Text = OUTFITS[currentOutfitIndex].label
+        outfitSelectorLabel.TextColor3 = WHITE
+        outfitSelectorLabel.Font = Enum.Font.GothamBold
+        outfitSelectorLabel.TextSize = 12
+        outfitSelectorLabel.TextXAlignment = Enum.TextXAlignment.Center
+        outfitSelectorLabel.ZIndex = 9
+        local rightBtn = Instance.new("TextButton", container)
+        rightBtn.Size = UDim2.new(0, 28, 0, 26)
+        rightBtn.Position = UDim2.new(1, -28, 0.5, -13)
+        rightBtn.BackgroundColor3 = INP
+        rightBtn.BackgroundTransparency = 0.2
+        rightBtn.BorderSizePixel = 0
+        rightBtn.Text = ">"
+        rightBtn.TextColor3 = WHITE
+        rightBtn.Font = Enum.Font.GothamBold
+        rightBtn.TextSize = 13
+        rightBtn.AutoButtonColor = false
+        rightBtn.ZIndex = 9
+        Instance.new("UICorner", rightBtn).CornerRadius = UDim.new(0, 6)
+        local rightStroke = Instance.new("UIStroke", rightBtn)
+        rightStroke.Color = ROW_BORDER
+        rightStroke.Thickness = 1
+        local function updateOutfit(direction)
+            local newIdx = currentOutfitIndex + direction
+            if newIdx < 1 then newIdx = #OUTFITS end
+            if newIdx > #OUTFITS then newIdx = 1 end
+            currentOutfitIndex = newIdx
+            pcall(function() applyOutfitByIndex(currentOutfitIndex) end)
+            if outfitSelectorLabel then
+                outfitSelectorLabel.Text = OUTFITS[currentOutfitIndex].label
             end
-            pcall(saveAllSettings)
-        end)
+            saveAllSettings()
+        end
+        leftBtn.MouseButton1Click:Connect(function() updateOutfit(-1) end)
+        rightBtn.MouseButton1Click:Connect(function() updateOutfit(1) end)
     end
+
 
     mkSect(visualPage, "Personalization")
 
@@ -9036,14 +9087,30 @@ function buildGui()
 
     local mcColorRow = mkRow(visualPage, 38)
     mkLabel(mcColorRow, "MC Bat Color")
-    local mcColors = {
-        "Default", "Abyss Blue", "Venom Green", "Royal Gold",
-        "Velvet Rose", "Crimson Night", "RGB"
-    }
-    MinecraftBatColorSelector = mkDropdown(visualPage, mcColorRow, minecraftBatSkinColorMode or "Default", mcColors, function(opt)
-        minecraftBatSkinColorMode = opt
+    MinecraftBatColorSelector = mkSelector(mcColorRow, minecraftBatSkinColorMode, {
+        "Default",
+        "Abyss Blue",
+        "Venom Green",
+        "Royal Gold",
+        "Velvet Rose",
+        "Crimson Night",
+        "RGB",
+    }, function(dir, updateLabel)
+        local options = {
+            "Default", "Abyss Blue", "Venom Green", "Royal Gold",
+            "Velvet Rose", "Crimson Night", "RGB"
+        }
+        local idx = 1
+        for i, name in ipairs(options) do
+            if name == minecraftBatSkinColorMode then idx = i break end
+        end
+        idx = idx + dir
+        if idx < 1 then idx = #options end
+        if idx > #options then idx = 1 end
+        minecraftBatSkinColorMode = options[idx]
+        updateLabel(minecraftBatSkinColorMode)
         minecraftBatSkinController.State.colorMode = minecraftBatSkinColorMode
-        pcall(function() minecraftBatSkinController:SetColorMode(minecraftBatSkinColorMode) end)
+        minecraftBatSkinController:SetColorMode(minecraftBatSkinColorMode)
         if minecraftBatSkinEnabled then pcall(minecraftBatSkinController.Apply) end
         pcall(saveAllSettings)
     end)
@@ -9109,12 +9176,70 @@ function buildGui()
     do
         local row = mkRow(visualPage, 38)
         mkLabel(row, "Sky Theme")
-        skySelectorLabel = mkDropdown(visualPage, row, tostring(skyTheme or "Off"), SKY_PRESETS_LIST, function(opt)
-            skyTheme = opt
-            pcall(applyCustomSky, opt)
+        local container = Instance.new("Frame", row)
+        container.Size = UDim2.new(0, 160, 1, 0)
+        container.Position = UDim2.new(1, -168, 0, 0)
+        container.BackgroundTransparency = 1
+        container.ZIndex = 8
+        local leftBtn = Instance.new("TextButton", container)
+        leftBtn.Size = UDim2.new(0, 28, 0, 26)
+        leftBtn.Position = UDim2.new(0, 0, 0.5, -13)
+        leftBtn.BackgroundColor3 = INP
+        leftBtn.BackgroundTransparency = 0.2
+        leftBtn.BorderSizePixel = 0
+        leftBtn.Text = "<"
+        leftBtn.TextColor3 = WHITE
+        leftBtn.Font = Enum.Font.GothamBold
+        leftBtn.TextSize = 13
+        leftBtn.AutoButtonColor = false
+        leftBtn.ZIndex = 9
+        Instance.new("UICorner", leftBtn).CornerRadius = UDim.new(0, 6)
+        local leftStroke = Instance.new("UIStroke", leftBtn)
+        leftStroke.Color = ROW_BORDER
+        leftStroke.Thickness = 1
+        skySelectorLabel = Instance.new("TextLabel", container)
+        skySelectorLabel.Size = UDim2.new(0, 96, 0, 26)
+        skySelectorLabel.Position = UDim2.new(0.5, -48, 0.5, -13)
+        skySelectorLabel.BackgroundTransparency = 1
+        skySelectorLabel.Text = skyTheme
+        skySelectorLabel.TextColor3 = WHITE
+        skySelectorLabel.Font = Enum.Font.GothamBold
+        skySelectorLabel.TextSize = 11
+        skySelectorLabel.TextScaled = false
+        skySelectorLabel.TextXAlignment = Enum.TextXAlignment.Center
+        skySelectorLabel.ZIndex = 9
+        local rightBtn = Instance.new("TextButton", container)
+        rightBtn.Size = UDim2.new(0, 28, 0, 26)
+        rightBtn.Position = UDim2.new(1, -28, 0.5, -13)
+        rightBtn.BackgroundColor3 = INP
+        rightBtn.BackgroundTransparency = 0.2
+        rightBtn.BorderSizePixel = 0
+        rightBtn.Text = ">"
+        rightBtn.TextColor3 = WHITE
+        rightBtn.Font = Enum.Font.GothamBold
+        rightBtn.TextSize = 13
+        rightBtn.AutoButtonColor = false
+        rightBtn.ZIndex = 9
+        Instance.new("UICorner", rightBtn).CornerRadius = UDim.new(0, 6)
+        local rightStroke = Instance.new("UIStroke", rightBtn)
+        rightStroke.Color = ROW_BORDER
+        rightStroke.Thickness = 1
+        local function updateSkySelector(direction)
+            local idx = 1
+            for i, name in ipairs(SKY_PRESETS_LIST) do
+                if name == skyTheme then idx = i; break end
+            end
+            local newIdx = idx + direction
+            if newIdx < 1 then newIdx = #SKY_PRESETS_LIST end
+            if newIdx > #SKY_PRESETS_LIST then newIdx = 1 end
+            local name = SKY_PRESETS_LIST[newIdx]
+            skyTheme = name
+            pcall(applyCustomSky, name)
+            if skySelectorLabel then skySelectorLabel.Text = name end
             pcall(saveAllSettings)
-        end)
-    end
+        end
+        leftBtn.MouseButton1Click:Connect(function() updateSkySelector(-1) end)
+        rightBtn.MouseButton1Click:Connect(function() updateSkySelector(1) end)
     end
 
     local configPage = contentPages["Config"]
@@ -9166,12 +9291,61 @@ function buildGui()
         local row = mkRow(configPage, 38)
         mkLabel(row, "Float Shape")
         local shapes = {"Rounded", "Square", "Circle"}
-        local cur = tostring(floatingButtonShape or "Rounded")
-        mkDropdown(configPage, row, cur, shapes, function(opt)
-            floatingButtonShape = opt
-            pcall(applyFloatingButtonShape)
-            pcall(saveAllSettings)
-        end)
+        local shapeIdx = 1
+        for i, s in ipairs(shapes) do
+            if s == tostring(floatingButtonShape or "Rounded") then shapeIdx = i; break end
+        end
+        local container = Instance.new("Frame", row)
+        container.Size = UDim2.new(0, 160, 1, 0)
+        container.Position = UDim2.new(1, -168, 0, 0)
+        container.BackgroundTransparency = 1
+        container.ZIndex = 8
+        local leftBtn = Instance.new("TextButton", container)
+        leftBtn.Size = UDim2.new(0, 28, 0, 26)
+        leftBtn.Position = UDim2.new(0, 0, 0.5, -13)
+        leftBtn.BackgroundColor3 = INP
+        leftBtn.BorderSizePixel = 0
+        leftBtn.Text = "<"
+        leftBtn.TextColor3 = BLACK
+        leftBtn.Font = Enum.Font.GothamBold
+        leftBtn.TextSize = 13
+        leftBtn.AutoButtonColor = false
+        leftBtn.ZIndex = 9
+        Instance.new("UICorner", leftBtn).CornerRadius = UDim.new(0, 6)
+        local shapeLabel = Instance.new("TextLabel", container)
+        shapeLabel.Size = UDim2.new(0, 96, 0, 26)
+        shapeLabel.Position = UDim2.new(0, 32, 0.5, -13)
+        shapeLabel.BackgroundColor3 = INP
+        shapeLabel.BorderSizePixel = 0
+        shapeLabel.Text = shapes[shapeIdx]
+        shapeLabel.TextColor3 = BLACK
+        shapeLabel.Font = Enum.Font.GothamBold
+        shapeLabel.TextSize = 12
+        shapeLabel.ZIndex = 9
+        Instance.new("UICorner", shapeLabel).CornerRadius = UDim.new(0, 6)
+        local rightBtn = Instance.new("TextButton", container)
+        rightBtn.Size = UDim2.new(0, 28, 0, 26)
+        rightBtn.Position = UDim2.new(1, -28, 0.5, -13)
+        rightBtn.BackgroundColor3 = INP
+        rightBtn.BorderSizePixel = 0
+        rightBtn.Text = ">"
+        rightBtn.TextColor3 = BLACK
+        rightBtn.Font = Enum.Font.GothamBold
+        rightBtn.TextSize = 13
+        rightBtn.AutoButtonColor = false
+        rightBtn.ZIndex = 9
+        Instance.new("UICorner", rightBtn).CornerRadius = UDim.new(0, 6)
+        local function cycleShape(dir)
+            shapeIdx = shapeIdx + dir
+            if shapeIdx < 1 then shapeIdx = #shapes end
+            if shapeIdx > #shapes then shapeIdx = 1 end
+            floatingButtonShape = shapes[shapeIdx]
+            shapeLabel.Text = floatingButtonShape
+            applyFloatingButtonShape()
+            saveAllSettings()
+        end
+        leftBtn.MouseButton1Click:Connect(function() cycleShape(-1) end)
+        rightBtn.MouseButton1Click:Connect(function() cycleShape(1) end)
     end
 
     mkSect(configPage, "Config Management")
