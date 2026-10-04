@@ -1407,7 +1407,7 @@ local CoreGui = game:GetService("CoreGui")
 local InfiniteJump = {
     enabled = false,
     jumpPower = 50,
-    mode = "hold", -- "manual" | "hold"
+    mode = "manual", -- "manual" | "hold"  (manual = daha guvenli, kendi kendine ziplamaz)
     canJump = true,
     lastJumpTime = 0,
     lastInfJump = 0,
@@ -1506,9 +1506,12 @@ local function _ijOnJumpRequest()
         return
     end
 
-    -- Manual: sadece yakin zamanda gercek tus basildiysa zıpla
+    -- Manual: sadece yakin zamanda gercek tus basildiysa zıpla (kendi kendine engeli)
     local now = _tick()
-    if now - (InfiniteJump.lastIntentional or 0) > 0.35 then
+    if now - (InfiniteJump.lastIntentional or 0) > 0.20 then
+        return
+    end
+    if not _ijIsIntentionallyHeld() then
         return
     end
     _ijApplyJumpVelocity()
@@ -1523,6 +1526,10 @@ local function _ijHoldTick()
 
     -- Sadece gercekten basiliyken; donunce/kendiliginden zıplamasin
     if not _ijIsIntentionallyHeld() then
+        return
+    end
+    local now = _tick()
+    if now - (InfiniteJump.lastInfJump or 0) < 0.12 then
         return
     end
     _ijApplyJumpVelocity()
@@ -3202,8 +3209,6 @@ end
 function setupSpeedIndicator(char)
     local head = char:WaitForChild("Head", 5)
     if not head then return end
-
-    -- Speed indicator (Hız)
     local oldBB = head:FindFirstChild("Sakura.vsSpeedIndicator")
     if oldBB then oldBB:Destroy() end
     local bb = Instance.new("BillboardGui", head)
@@ -3215,35 +3220,71 @@ function setupSpeedIndicator(char)
     speedLabel.Size = UDim2.new(1, 0, 1, 0)
     speedLabel.Position = UDim2.new(0, 0, 0, 0)
     speedLabel.BackgroundTransparency = 1
-    speedLabel.Text = "Hız: 0.0"
-    speedLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    speedLabel.Text = "Spd: 0.0"
+    speedLabel.TextColor3 = getThemeColor()
     speedLabel.Font = Enum.Font.GothamBold
     speedLabel.TextScaled = true
     speedLabel.TextStrokeTransparency = 0
     speedLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-
-    -- Discord: sade beyaz yazı, mavi çizgi/çerçeve yok
+    applyShimmerToText(speedLabel, 0.9)
     local discordBB = head:FindFirstChild("DiscordText")
     if discordBB then discordBB:Destroy() end
     discordBB = Instance.new("BillboardGui", head)
     discordBB.Name = "DiscordText"
-    discordBB.Size = UDim2.new(0, 260, 0, 36)
-    discordBB.StudsOffset = _V3new(0, 5.0, 0)
+    discordBB.Size = UDim2.new(0, 260, 0, 42)
+    discordBB.StudsOffset = _V3new(0, 5.4, 0)
     discordBB.AlwaysOnTop = true
     discordBB.MaxDistance = 120
 
-    local discordLabel = Instance.new("TextLabel", discordBB)
+    local discFrame = Instance.new("Frame", discordBB)
+    discFrame.Size = UDim2.new(1, 0, 1, 0)
+    discFrame.BackgroundColor3 = Color3.fromRGB(8, 10, 14)
+    discFrame.BackgroundTransparency = 0.2
+    discFrame.BorderSizePixel = 0
+    Instance.new("UICorner", discFrame).CornerRadius = UDim.new(0, 12)
+    local discStroke = Instance.new("UIStroke", discFrame)
+    discStroke.Color = Color3.fromRGB(90, 210, 230)
+    discStroke.Thickness = 1.6
+    discStroke.Transparency = 0.15
+
+    local discBg = Instance.new("ImageLabel", discFrame)
+    discBg.Name = "DiscordAssetBg"
+    discBg.Size = UDim2.new(1, 0, 1, 0)
+    discBg.BackgroundTransparency = 1
+    discBg.ScaleType = Enum.ScaleType.Crop
+    discBg.ImageTransparency = 0.1
+    discBg.Image = "rbxassetid://124268985896208"
+    discBg.ZIndex = 1
+    Instance.new("UICorner", discBg).CornerRadius = UDim.new(0, 12)
+    task.delay(0.5, function()
+        if discBg and discBg.Parent then
+            pcall(function()
+                discBg.Image = "rbxthumb://type=Asset&id=124268985896208&w=768&h=432"
+            end)
+        end
+    end)
+
+    local discWash = Instance.new("Frame", discFrame)
+    discWash.Size = UDim2.new(1, 0, 1, 0)
+    discWash.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    discWash.BackgroundTransparency = 0.45
+    discWash.BorderSizePixel = 0
+    discWash.ZIndex = 2
+    Instance.new("UICorner", discWash).CornerRadius = UDim.new(0, 12)
+
+    local discordLabel = Instance.new("TextLabel", discFrame)
     discordLabel.Name = "DiscordLabel"
-    discordLabel.Size = UDim2.new(1, 0, 1, 0)
-    discordLabel.Position = UDim2.new(0, 0, 0, 0)
+    discordLabel.Size = UDim2.new(1, -12, 1, -6)
+    discordLabel.Position = UDim2.new(0, 6, 0, 3)
     discordLabel.BackgroundTransparency = 1
-    discordLabel.Text = "discord.gg/sakuraduels"
-    discordLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    discordLabel.Text = "discord.gg/SakuraDuels"
+    discordLabel.TextColor3 = Color3.fromRGB(200, 235, 245)
     discordLabel.Font = Enum.Font.GothamBlack
     discordLabel.TextScaled = true
-    discordLabel.TextStrokeTransparency = 0.3
+    discordLabel.TextStrokeTransparency = 0.15
     discordLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
     discordLabel.ZIndex = 5
+    applyShimmerToText(discordLabel, 0.85)
 end
 
 local unwalkSavedAnimate = nil
@@ -6048,7 +6089,7 @@ function setupMovementAndIndicators(char)
             local v = hrp.AssemblyLinearVelocity
             local s = _sqrt(v.X*v.X + v.Z*v.Z)
             if s < 0.05 then s = 0 end
-            speedLabel.Text = "Hız: " .. string.format("%.1f", s)
+            speedLabel.Text = "Speed: " .. string.format("%.1f", s)
         end
     end)
     setupSpeedIndicator(char)
@@ -6521,23 +6562,15 @@ function loadAllSettings()
         end)
     end
 
-    useCarrySystem = data.useCarrySystem or false
+    useCarrySystem = false -- Auto Carry System GUI kaldirildi, her zaman kapali
     CarrySystem.normalSpeed = data.carrySysNormal or NS
     CarrySystem.carrySpeed = data.carrySysCarry or CS
     CarrySystem.laggerSpeed = data.carrySysLagger or LAGGER_SPEED
     CarrySystem.laggerCarrySpeed = data.carrySysLaggerCarry or LAGGER_CARRY_SPEED
     CarrySystem.softStealSpeed = data.carrySysSoftStealSpeed or 30
     CarrySystem.softStealRadius = data.carrySysSoftStealRadius or 10
-    if useCarrySystem then
-        CarrySystem:start()
-        CarrySystem.speedToggled = speedMode
-        if laggerToggled then
-        else
-            CarrySystem:setLaggerMode(0)
-        end
-    else
-        CarrySystem:stop()
-    end
+    CarrySystem:stop()
+    CarrySystem:setSoftStealEnabled(false)
 
     autoBatEnabled = false
     autoLeftEnabled = false
@@ -8412,32 +8445,7 @@ function buildGui()
         saveAllSettings()
     end)
 
-    mkSect(speedPage, "Auto Carry System (New)")
-    carrySystemToggleSetter = mkToggle(speedPage, "Enable Auto Carry", function(on)
-        useCarrySystem = on
-        if on then
-            CarrySystem:start()
-            CarrySystem.speedToggled = speedMode
-            if laggerToggled then
-            else
-                CarrySystem:setLaggerMode(0)
-            end
-            CarrySystem:setSoftStealEnabled(true)
-        else
-            CarrySystem:stop()
-            CarrySystem:setSoftStealEnabled(false)
-        end
-        saveAllSettings()
-    end)
-
-    mkSect(speedPage, "Auto Carry Speeds")
-    do local row = mkRow(speedPage, 38); mkLabel(row, "Normal Speed"); carrySysNormalBox = mkBox(row, CarrySystem.normalSpeed, 50, 56, function(v) if v > 0 and v <= 500 then CarrySystem:setNormalSpeed(v); saveAllSettings() end end) end
-    do local row = mkRow(speedPage, 38); mkLabel(row, "Carry Speed"); carrySysCarryBox = mkBox(row, CarrySystem.carrySpeed, 50, 56, function(v) if v > 0 and v <= 500 then CarrySystem:setCarrySpeed(v); saveAllSettings() end end) end
-    do local row = mkRow(speedPage, 38); mkLabel(row, "Lagger Speed"); carrySysLaggerBox = mkBox(row, CarrySystem.laggerSpeed, 50, 56, function(v) if v > 0 and v <= 500 then CarrySystem:setLaggerSpeed(v); saveAllSettings() end end) end
-    do local row = mkRow(speedPage, 38); mkLabel(row, "Lagger Carry Spd"); carrySysLaggerCarryBox = mkBox(row, CarrySystem.laggerCarrySpeed, 50, 56, function(v) if v > 0 and v <= 500 then CarrySystem:setLaggerCarrySpeed(v); saveAllSettings() end end) end
-
-    -- Soft Steal Settings kaldirildi (GUI temizligi)
-    -- Soft steal arka planda Enable Auto Carry ile birlikte calisir
+    -- Auto Carry System (New) + Enable Auto Carry + Auto Carry Speeds GUI tamamen kaldirildi
 
     mkSect(speedPage, "Sakura.vs Anti Bat")
     local setAntiBatPanelVisual = nil
@@ -11358,15 +11366,7 @@ task.spawn(function()
         }):Play()
     end
 
-    if useCarrySystem then
-        CarrySystem:start()
-        CarrySystem.speedToggled = speedMode
-        if laggerToggled then
-        else
-            CarrySystem:setLaggerMode(0)
-        end
-        CarrySystem:setSoftStealEnabled(true)
-    end
+    -- Auto Carry System kaldirildi, baslatma yok
 
     if LP.Character then
         task.wait(0.1)
